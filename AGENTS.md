@@ -29,6 +29,7 @@
 - ALWAYS adhere to the architecture: one server, multiple clients, server relays all messages
 - ALWAYS verify that generated code runs without errors before proposing changes
 - ALWAYS use clear variable names and avoid abbreviations
+-ALWAYS generate not more than 5000 lines of code per Persenal Request.
 
 ## Architectural Constraints
 
