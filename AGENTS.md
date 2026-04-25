@@ -1,4 +1,4 @@
-# Copilot Agent Rules — P2P Messenger
+# Agent Rules — P2P Messenger
 
 > ATTENTION AGENT: This file contains mandatory rules. Read before every session with this project.
 
