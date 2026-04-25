@@ -8,7 +8,7 @@
 |-----------|-------|
 | Project Name | P2P Messenger |
 | Actual Architecture | Client-Server with centralized relay |
-| Language | Python 3.10 or higher |
+| Language | Python 3.10 |
 | GUI Framework | Tkinter (built-in) |
 | Protocol | WebSockets |
 
