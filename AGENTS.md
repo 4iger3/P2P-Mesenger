@@ -17,7 +17,7 @@
 - Do NOT implement WiFi Direct, Bluetooth P2P, mDNS, Zeroconf, or any automatic peer discovery
 - Do NOT change the project name from "P2P Messenger"
 - Do NOT generate code for decentralized P2P features such as NAT traversal, UDP hole punching, DHT, or STUN/TURN
-- Do NOT delete or rename the COPILOT_RULES.md file
+- Do NOT delete or rename the AGENTS.md file
 - Do NOT add external libraries without explicit permission beyond websockets and standard library
 - Do NOT overcomplicate the architecture unnecessarily
 
