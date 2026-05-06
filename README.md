@@ -19,11 +19,45 @@ This project implements a messaging system where:
 ## Project Structure
 
 P2P-Messenger/
+├── app.py
 ├── server.py
-├── client.py
-├── requirements.txt
 ├── README.md
-└── AGENTS.md
+├── AGENTS.md
+│
+├── core/
+│   ├── __init__.py
+│   ├── state.py
+│   └── message_model.py
+│
+├── network/
+│   ├── __init__.py
+│   ├── event_loop.py
+│   └── websocket_client.py
+│
+├── ui/
+│   ├── __init__.py
+│   ├── main_window.py
+│   └── components.py
+│
+├── docs/
+│   ├── architecture/
+│   │   └── flow_[Mermaid].md
+│   │
+│   ├── plans/
+│   │   └── roadmap.md
+│   │
+│   └── requirements/
+│       ├── feature_send_message.md
+│       └── pm_approach.md
+│
+├── Experiment/
+│   └── Experiment.md
+│
+├── tests/
+│   ├── test_client_send.py
+│   └── test_message_delivery.py
+│
+└── __pycache__/
 
 ## Usage
 
@@ -34,5 +68,5 @@ python server.py --host 0.0.0.0 --port 8765
 
 ### Client
 ```
-python client.py
+python app.py
 ```
