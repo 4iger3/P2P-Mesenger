@@ -23,7 +23,7 @@ P2P-Messenger/
 ├── client.py
 ├── requirements.txt
 ├── README.md
-└── COPILOT_RULES.md
+└── AGENTS.md
 
 ## Usage
 

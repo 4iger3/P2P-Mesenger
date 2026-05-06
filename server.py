@@ -3,12 +3,14 @@
 
 import argparse
 import asyncio
+import json
 import sys
 
 import websockets
 from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
 active_connections = set()
+client_usernames: dict[websockets.WebSocketServerProtocol, str] = {}
 connection_lock = asyncio.Lock()
 
 
@@ -40,14 +42,30 @@ async def handle_client(websocket: websockets.WebSocketServerProtocol) -> None:
     try:
         async for message in websocket:
             print("Message received")
+            try:
+                payload = json.loads(message)
+            except json.JSONDecodeError:
+                payload = None
+
+            if isinstance(payload, dict) and payload.get("type") == "auth":
+                username = str(payload.get("user", "")).strip()
+                client_usernames[websocket] = username
+                join_message = json.dumps({"type": "join", "user": username})
+                await broadcast_message(join_message)
+                continue
+
             await broadcast_message(message)
     except (ConnectionClosedError, ConnectionClosedOK):
         pass
     except Exception as error:
         print(f"Connection handler error: {error}", file=sys.stderr)
     finally:
+        username = client_usernames.pop(websocket, "")
         async with connection_lock:
             active_connections.discard(websocket)
+        if username:
+            leave_message = json.dumps({"type": "leave", "user": username})
+            await broadcast_message(leave_message)
         print("Client disconnected")
 
 

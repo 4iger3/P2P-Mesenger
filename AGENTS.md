@@ -22,9 +22,10 @@
 - Do NOT overcomplicate the architecture unnecessarily
 
 ## REQUIRED ACTIONS
-
+- ALWAYS use English
+- ALWAYS modify files directly using the file editor tool. Do NOT output code in chat unless the user explicitly asks to "show the code".
 - ALWAYS read this file before starting work on the project
-- ALWAYS write comments and docstrings in Russian
+- ALWAYS write comments and docstrings in English
 - ALWAYS use asyncio for asynchronous server operations
 - ALWAYS adhere to the architecture: one server, multiple clients, server relays all messages
 - ALWAYS verify that generated code runs without errors before proposing changes
