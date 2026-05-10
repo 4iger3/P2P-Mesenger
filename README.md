@@ -59,7 +59,17 @@ P2P-Messenger/
 │
 └── __pycache__/
 
+## Architecture Overview
+
+The application follows a layered architecture:
+
+- core/ — domain state and models
+- network/ — async communication layer (WebSocket)
+- ui/ — presentation layer (Tkinter)
+- app.py — composition root (wires all layers together)
+
 ## Usage
+
 
 ### Server
 ```
