@@ -1,169 +1,141 @@
-import json
-import queue
-from datetime import datetime
-from typing import Any
+"""
+Application controller for routing events between UI and network.
 
-from .message_model import MessageModel
+The controller acts as an intermediary that processes UI requests,
+validates them, updates the application state, and coordinates with
+the network layer through event dispatching.
+"""
+
+import asyncio
+from core.events.observer import Observer
+from core.events.dispatcher import EventDispatcher
+from core.events.events import (
+    Event,
+    CONNECTION_CHANGED,
+    CONNECT_REQUEST,
+    DISCONNECT_REQUEST,
+    SEND_MESSAGE,
+    ERROR_OCCURRED,
+)
 from .state import AppState
 
 
-class Controller:
-    def __init__(
-        self,
-        ui_event_queue: queue.Queue,
-        core_to_network_queue: queue.Queue,
-        network_event_queue: queue.Queue,
-        ui_update_queue: queue.Queue,
-        state: AppState,
-    ) -> None:
-        self.ui_event_queue = ui_event_queue
-        self.core_to_network_queue = core_to_network_queue
-        self.network_event_queue = network_event_queue
-        self.ui_update_queue = ui_update_queue
+class Controller(Observer):
+    """
+    Application controller with Observer pattern integration.
+    
+    Validates user actions, manages application state, and coordinates
+    between the UI layer (user actions) and network layer (WebSocket).
+    """
+
+    def __init__(self, dispatcher: EventDispatcher, state: AppState, network_client) -> None:
+        """
+        Initialize the controller.
+        
+        Args:
+            dispatcher (EventDispatcher): Event dispatcher for sending/receiving events.
+            state (AppState): Application state object.
+            network_client: The network client for direct communication.
+        """
+        self.dispatcher = dispatcher
         self.state = state
-        self.username = ""
+        self.network_client = network_client
+        
+        # Attach to dispatcher to receive user events
+        dispatcher.attach(self)
 
-    def process_queues(self) -> None:
-        self._process_ui_events()
-        self._process_network_events()
+    def update(self, event: Event) -> None:
+        """
+        Handle events from the dispatcher.
+        
+        Routes user actions (connect, send) to appropriate handlers with validation.
+        
+        Args:
+            event (Event): The event to process.
+        """
+        if event.type == CONNECT_REQUEST:
+            self._handle_connect_request(event)
+        elif event.type == SEND_MESSAGE:
+            self._handle_send_message_request(event)
+        elif event.type == DISCONNECT_REQUEST:
+            self._handle_disconnect_request(event)
+        elif event.type == CONNECTION_CHANGED:
+            # Update state when connection changes
+            connected = event.data.get("connected", False)
+            self.state.set_connected(connected)
+            if not connected:
+                self.state.set_username("")
 
-    def _process_ui_events(self) -> None:
-        while True:
-            try:
-                event = self.ui_event_queue.get_nowait()
-            except queue.Empty:
-                break
-            self._handle_ui_event(event)
-
-    def _process_network_events(self) -> None:
-        while True:
-            try:
-                event = self.network_event_queue.get_nowait()
-            except queue.Empty:
-                break
-            self._handle_network_event(event)
-
-    def _handle_ui_event(self, event: dict[str, Any]) -> None:
-        event_type = event.get("type")
-
-        if event_type == "connect":
-            self._handle_connect(event)
-        elif event_type == "send_message":
-            self._handle_send_message(event)
-        elif event_type == "disconnect":
-            self._handle_disconnect()
-        elif event_type == "clear_chat":
-            self._handle_clear_chat()
-
-    def _handle_connect(self, event: dict[str, Any]) -> None:
-        host = str(event.get("host", "")).strip()
-        port_text = str(event.get("port", "")).strip()
+    def _handle_connect_request(self, event: Event) -> None:
+        """
+        Handle connection request with validation.
+        
+        Validates connection parameters. Does NOT re-emit the event to prevent
+        infinite loops. The WebSocketClient is also attached to the dispatcher
+        and will handle the connection directly from the original event.
+        Errors are emitted as separate ERROR_OCCURRED events.
+        
+        Args:
+            event (Event): The connect request event.
+        """
+        host = str(event.data.get("host", "")).strip()
+        port_text = str(event.data.get("port", "")).strip()
+        username = str(event.data.get("username", "")).strip()
 
         if not host or not port_text:
-            self._send_ui_update({"type": "status", "text": "Enter server IP and port"})
+            error_event = Event(ERROR_OCCURRED, {"error": "Enter server IP and port"})
+            self.dispatcher.notify(error_event)
             return
 
         try:
             port = int(port_text)
         except ValueError:
-            self._send_ui_update({"type": "status", "text": "Port must be a number"})
+            error_event = Event(ERROR_OCCURRED, {"error": "Port must be a number"})
+            self.dispatcher.notify(error_event)
             return
 
         if self.state.connected:
-            self._send_ui_update({"type": "status", "text": "Already connected"})
+            error_event = Event(ERROR_OCCURRED, {"error": "Already connected"})
+            self.dispatcher.notify(error_event)
             return
 
-        username = str(event.get("username", "")).strip()
-        self.username = username
+        # Save username for later use
         self.state.set_username(username)
-        self._send_ui_update({"type": "status", "text": "Connecting..."})
-        self._send_ui_update({"type": "enable_connect", "enabled": False})
-        self.core_to_network_queue.put(
-            {"type": "connect", "host": host, "port": port, "username": username}
-        )
 
-    def _handle_send_message(self, event: dict[str, Any]) -> None:
-        text = str(event.get("text", "")).strip()
+    def _handle_send_message_request(self, event: Event) -> None:
+        """
+        Handle send message request with validation.
+        
+        Validates the message and connection state, then forwards to network layer.
+        Formats the message properly for the WebSocketClient.
+        
+        Args:
+            event (Event): The send message request event.
+        """
+        text = str(event.data.get("text", "")).strip()
         if not text:
             return
 
-        username = str(event.get("username", "")).strip()
-        message = f"{username}: {text}" if username else text
-
         if not self.state.connected:
-            self._send_ui_update({"type": "status", "text": "Not connected"})
+            error_event = Event(ERROR_OCCURRED, {"error": "Not connected to server"})
+            self.dispatcher.notify(error_event)
             return
 
-        self.core_to_network_queue.put({"type": "send_message", "message": message})
-        self._send_ui_update({"type": "clear_input"})
+        username = str(event.data.get("username", "")).strip()
+        message = f"{username}: {text}" if username else text
 
-    def _handle_disconnect(self) -> None:
-        if self.state.connected:
-            self.core_to_network_queue.put({"type": "disconnect"})
+        # Send directly to network client (avoid re-entrant event dispatching)
+        self.network_client.send_message(message)
 
-    def _handle_clear_chat(self) -> None:
-        self.state.message_count = 0
-        self._send_ui_update({"type": "message_count", "count": 0})
+    def _handle_disconnect_request(self, event: Event) -> None:
+        """
+        Handle disconnection request.
+        
+        Calls network client directly to disconnect.
+        
+        Args:
+            event (Event): The disconnect request event.
+        """
+        # Call network client directly (avoid re-entrant event dispatching)
+        self.network_client.disconnect()
 
-    def _handle_network_event(self, event: dict[str, Any]) -> None:
-        event_type = event.get("type")
-
-        if event_type == "connected":
-            self.state.set_connected(True)
-            self.state.set_status("Connected")
-            self._send_ui_update({"type": "status", "text": "Connected"})
-            self._send_ui_update({"type": "enable_send", "enabled": True})
-            self._send_ui_update({"type": "enable_connect", "enabled": False})
-        elif event_type == "disconnected":
-            self.state.set_connected(False)
-            self.state.set_status("Disconnected")
-            self.state.set_username("")
-            self._send_ui_update({"type": "status", "text": "Disconnected"})
-            self._send_ui_update({"type": "enable_send", "enabled": False})
-            self._send_ui_update({"type": "enable_connect", "enabled": True})
-        elif event_type == "message":
-            message_text = str(event.get("message", ""))
-            if not message_text:
-                return
-
-            try:
-                payload = json.loads(message_text)
-            except json.JSONDecodeError:
-                payload = None
-
-            if isinstance(payload, dict):
-                event_type_name = payload.get("type")
-                user = str(payload.get("user", "")).strip()
-                now = datetime.now().strftime("%H:%M:%S")
-
-                if event_type_name == "join":
-                    if user and user == self.state.username:
-                        text = "You joined the chat"
-                    else:
-                        text = f"User {user} joined the chat"
-                    self._send_ui_update({"type": "append_system", "message": text, "timestamp": now})
-                elif event_type_name == "leave":
-                    if user and user == self.state.username:
-                        text = "You left the chat"
-                    else:
-                        text = f"User {user} left the chat"
-                    self._send_ui_update({"type": "append_system", "message": text, "timestamp": now})
-                else:
-                    message = MessageModel(message_text)
-                    formatted = message.formatted()
-                    self.state.increment_message_count()
-                    self._send_ui_update({"type": "append_message", "message": formatted})
-                    self._send_ui_update({"type": "message_count", "count": self.state.message_count})
-            else:
-                message = MessageModel(message_text)
-                formatted = message.formatted()
-                self.state.increment_message_count()
-                self._send_ui_update({"type": "append_message", "message": formatted})
-                self._send_ui_update({"type": "message_count", "count": self.state.message_count})
-        elif event_type == "error":
-            error_text = str(event.get("error", "Connection error"))
-            self._send_ui_update({"type": "status", "text": f"Connection error: {error_text}"})
-            self._send_ui_update({"type": "enable_connect", "enabled": True})
-
-    def _send_ui_update(self, update: dict[str, Any]) -> None:
-        self.ui_update_queue.put(update)

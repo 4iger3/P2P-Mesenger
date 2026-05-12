@@ -28,6 +28,13 @@ P2P-Messenger/
 │   ├── __init__.py
 │   ├── state.py
 │   └── message_model.py
+│   │
+│   └── events/
+│       ├── __init__.py
+│       ├── dispatcher.py
+│       ├── observer.py
+│       ├── events.py
+│       └── README.md
 │
 ├── network/
 │   ├── __init__.py
@@ -67,6 +74,15 @@ The application follows a layered architecture:
 - network/ — async communication layer (WebSocket)
 - ui/ — presentation layer (Tkinter)
 - app.py — composition root (wires all layers together)
+
+## Design Patterns
+
+The project uses the Observer Design Pattern to implement
+an event-driven communication system between the UI,
+network, and controller layers.
+
+The event dispatcher reduces direct coupling between modules
+and improves scalability and maintainability.
 
 ## Usage
 

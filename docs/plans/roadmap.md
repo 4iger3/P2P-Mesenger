@@ -18,6 +18,14 @@
 4. Testing and refactoring
    - unit tests and manual testing on Linux
    - simplify code, document, and ensure compliance with AGENTS.md
+5. **Architecture improvements** ✅ **COMPLETE**
+   - **Observer pattern implementation** ✅ **COMPLETE**
+     - Replaced queue-based communication with event-driven Observer pattern
+     - Created core/events module with EventDispatcher (Subject)
+     - AppState, MainWindow, and WebSocketClient now implement Observer pattern
+     - All components communicate through centered EventDispatcher
+     - Thread-safe event dispatch with threading.Lock
+     - Reduced coupling between UI, network, and core layers
 
 ## Core Messaging Functionality
 - Server receives text messages from any client
@@ -41,7 +49,7 @@
 - Manual testing with two or more clients on a local machine
 - Verify correct behavior during client disconnect/reconnect events
 - Refactor based on test results: readability, exception handling, and comments in English
-- Keep the project within approximately 400 lines of code for `server.py` and `client.py`
+
 
 ## Future Release Features
 - Improved validation for user-entered IP and port values
@@ -49,3 +57,4 @@
 - Option to set a username and display it in chat messages
 - Minor UX improvements for message history and connection controls
 - Better error reporting for network issues
+

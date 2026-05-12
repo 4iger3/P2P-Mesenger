@@ -170,6 +170,7 @@ class StatusBar(ttk.Frame):
     def __init__(self, parent: ttk.Widget) -> None:
         super().__init__(parent, relief="sunken", padding=8, style="StatusBar.TFrame")
         self.grid_columnconfigure(1, weight=1)
+        self.message_count = 0
 
         self.status_label = ttk.Label(self, text="Disconnected", style="Status.TLabel")
         self.status_label.grid(row=0, column=0, sticky="w")
@@ -181,4 +182,10 @@ class StatusBar(ttk.Frame):
         self.status_label.config(text=text)
 
     def set_message_count(self, count: int) -> None:
+        self.message_count = count
         self.message_count_label.config(text=f"Messages: {count}")
+
+    def increment_message_count(self) -> None:
+        self.message_count += 1
+        self.message_count_label.config(text=f"Messages: {self.message_count}")
+
