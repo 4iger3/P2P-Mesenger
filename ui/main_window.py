@@ -6,7 +6,8 @@ providing real-time updates to the user interface.
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
+import customtkinter as ctk
 
 from core.events.observer import Observer
 from core.events.events import (
@@ -39,16 +40,19 @@ class MainWindow(Observer):
             dispatcher (EventDispatcher): The event dispatcher for sending/receiving events.
         """
         self.dispatcher = dispatcher
-        self.root = tk.Tk()
+        self.root = ctk.CTk()
         self.root.title("P2P Messenger Client")
         self.root.geometry("1100x700")
         self.root.minsize(900, 500)
+        
+        # Set CustomTkinter theme
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
 
         self.server_ip_var = tk.StringVar(value="127.0.0.1")
         self.server_port_var = tk.StringVar(value="8765")
         self.username_var = tk.StringVar(value="")
 
-        self._setup_styles()
         self._build_ui()
         self._bind_events()
         self._setup_context_menu()
@@ -58,26 +62,9 @@ class MainWindow(Observer):
         # Attach to dispatcher to receive events
         dispatcher.attach(self)
 
-    def _setup_styles(self) -> None:
-        """Setup Tkinter styles for UI components."""
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Main.TFrame", background="#0f172a")
-        style.configure("Header.TLabel", background="#0f172a", foreground="#e6edf3", font=("TkDefaultFont", 12, "bold"))
-        style.configure("Status.TLabel", background="#0f172a", foreground="#e6edf3", font=("TkDefaultFont", 9))
-        style.configure("Connected.TLabel", foreground="green", font=("TkDefaultFont", 9, "bold"))
-        style.configure("Disconnected.TLabel", foreground="red", font=("TkDefaultFont", 9, "bold"))
-        style.configure("Connecting.TLabel", foreground="orange", font=("TkDefaultFont", 9, "bold"))
-        style.configure("Counter.TLabel", font=("TkDefaultFont", 8), foreground="#8b98a5", background="#0f172a")
-        style.configure("Panel.TLabelframe", background="#1e293b", borderwidth=0, relief="flat")
-        style.configure("Panel.TLabelframe.Label", background="#1e293b", foreground="#e6edf3")
-        style.configure("Panel.TFrame", background="#0f172a")
-        style.configure("ChatEntry.TEntry", fieldbackground="#1e293b", background="#1e293b", foreground="#e6edf3")
-        style.configure("Accent.TButton", background="#2563eb", foreground="#e6edf3")
-
     def _build_ui(self) -> None:
         """Build the UI layout."""
-        main_container = ttk.Frame(self.root, style="Main.TFrame")
+        main_container = ctk.CTkFrame(self.root)
         main_container.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         self.root.grid_rowconfigure(0, weight=1)
@@ -85,12 +72,12 @@ class MainWindow(Observer):
         main_container.grid_rowconfigure(2, weight=1)
         main_container.grid_columnconfigure(0, weight=1)
 
-        header_frame = ttk.Frame(main_container, style="Panel.TFrame", padding=10)
+        header_frame = ctk.CTkFrame(main_container)
         header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         header_frame.grid_columnconfigure(0, weight=1)
 
-        ttk.Label(header_frame, text="P2P Messenger", style="Header.TLabel").grid(row=0, column=0, sticky="w")
-        self.connection_status_label = ttk.Label(header_frame, text="Disconnected", style="Status.TLabel")
+        ctk.CTkLabel(header_frame, text="P2P Messenger", font=("", 12, "bold")).grid(row=0, column=0, sticky="w")
+        self.connection_status_label = ctk.CTkLabel(header_frame, text="Disconnected", font=("", 9))
         self.connection_status_label.grid(row=0, column=1, sticky="e")
 
         self.connection_panel = ConnectionPanel(
@@ -102,7 +89,7 @@ class MainWindow(Observer):
         )
         self.connection_panel.grid(row=1, column=0, sticky="ew", pady=(0, 10))
 
-        content_frame = ttk.Frame(main_container, style="Panel.TFrame")
+        content_frame = ctk.CTkFrame(main_container)
         content_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 10))
         content_frame.grid_rowconfigure(0, weight=1)
         content_frame.grid_columnconfigure(0, weight=1)
@@ -121,7 +108,7 @@ class MainWindow(Observer):
         self.root.bind("<Control-l>", lambda event: self._clear_chat())
         self.message_input.entry.bind("<Control-a>", self._select_all)
         self.message_input.entry.bind("<KeyRelease>", lambda event: self.message_input.update_char_count())
-        self.message_input.entry.bind("<Return>", lambda event: self._on_send() if self.message_input.send_button["state"] == "normal" else None)
+        self.message_input.entry.bind("<Return>", lambda event: self._on_send() if self.message_input.send_button.cget("state") == "normal" else None)
 
     def _setup_context_menu(self) -> None:
         """Setup right-click context menu."""
@@ -261,20 +248,20 @@ class MainWindow(Observer):
         
         if connected:
             self._set_status("Connected")
-            self.connection_status_label.config(text="Connected")
-            self.message_input.send_button.config(state="normal")
-            self.connection_panel.connect_button.config(state="disabled")
+            self.connection_status_label.configure(text="Connected")
+            self.message_input.send_button.configure(state="normal")
+            self.connection_panel.connect_button.configure(state="disabled")
         else:
             self._set_status("Disconnected")
-            self.connection_status_label.config(text="Disconnected")
-            self.message_input.send_button.config(state="disabled")
-            self.connection_panel.connect_button.config(state="normal")
+            self.connection_status_label.configure(text="Disconnected")
+            self.message_input.send_button.configure(state="disabled")
+            self.connection_panel.connect_button.configure(state="normal")
 
     def _handle_error(self, event: Event) -> None:
         """Handle error event."""
         error_text = str(event.data.get("error", "Connection error"))
         self._set_status(f"Connection error: {error_text}")
-        self.connection_panel.connect_button.config(state="normal")
+        self.connection_panel.connect_button.configure(state="normal")
 
     def _parse_message(self, message: str) -> tuple[str, str, bool]:
         """Parse a formatted message into text, timestamp, and ownership flag."""

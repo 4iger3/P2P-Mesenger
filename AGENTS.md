@@ -31,7 +31,7 @@
 - ALWAYS verify that generated code runs without errors before proposing changes
 - ALWAYS use clear variable names and avoid abbreviations
 
--ALWAYS generate not more than 5000 lines of code per Persenal Request.
+-ALWAYS generate not more than 1200 lines of code per Persenal Request.
 
 ## Architectural Constraints
 
@@ -42,8 +42,8 @@
 - Must not store message history (stateless relay)
 - Must handle client disconnections gracefully without crashing
 
-### Client (client.py)
-- Must provide a Tkinter GUI with the following elements:
+### Client (app.py)
+- Must provide a CustomTkinter GUI with the following elements:
   - Server IP address input field with option to save
   - Server port input field (default 8765)
   - Message input field
@@ -54,30 +54,61 @@
 - Upon receiving a message from the server, append it to the chat history display
 
 ### Code Requirements
-- Total lines of code should not exceed approximately 400 lines across server and client
-- Minimal dependencies: websockets library only
 - Code must be self-documenting with docstrings
 
 ## Project Structure
 
 P2P-Messenger/
+├── app.py
 ├── server.py
-├── client.py
-├── requirements.txt
 ├── README.md
-└── COPILOT_RULES.md
+├── AGENTS.md
+│
+├── core/
+│   ├── __init__.py
+│   ├── state.py
+│   ├── message_model.py
+│   └── events/
+│       ├── __init__.py
+│       ├── dispatcher.py
+│       ├── observer.py
+│       ├── events.py
+│       └── README.md
+│
+├── network/
+│   ├── __init__.py
+│   ├── event_loop.py
+│   └── websocket_client.py
+│
+├── ui/
+│   ├── __init__.py
+│   ├── main_window.py
+│   └── components.py
+│
+├── docs/
+│   ├── architecture/
+│   │   └── flow_[Mermaid].md
+│   │
+│   ├── plans/
+│   │   └── roadmap.md
+│   │
+│   └── requirements/
+│       ├── feature_send_message.md
+│       └── pm_approach.md
+│
+├── Experiment/
+│   └── Experiment.md
+│
+├── tests/
+│   ├── test_client_send.py
+│   └── test_message_delivery.py
+│
+└── __pycache__/
 
 ## Agent Reminder
 
 "I am building a centralized chat application using WebSockets. The project is named P2P Messenger but it is not true peer-to-peer. Clients communicate only through a central server. No WiFi Direct. No decentralized P2P."
 
-## Agent Commands Reference
-
-When the user writes:
-- "fix client" — modify only client.py
-- "add feature X" — verify the feature does not violate the rules above before implementing
-- "review" — check the codebase for compliance with this rules file
-
 ---
-Last updated: 11 апреля 2026 г.
+Last updated: 13 may 2026 г.
 This file serves as the instruction set for GitHub Copilot Agent.
