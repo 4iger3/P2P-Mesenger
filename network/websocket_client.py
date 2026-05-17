@@ -20,6 +20,7 @@ from core.events.events import (
     Event,
     CONNECTION_CHANGED,
     MESSAGE_RECEIVED,
+    USER_LIST_UPDATED,
     ERROR_OCCURRED,
     CONNECT_REQUEST,
     DISCONNECT_REQUEST,
@@ -156,9 +157,19 @@ class WebSocketClient(Observer):
         """
         try:
             async for message in self.websocket:
-                # Dispatch message received event
-                event = Event(MESSAGE_RECEIVED, {"message": message})
-                self.dispatcher.notify(event)
+                try:
+                    payload = json.loads(message)
+                except json.JSONDecodeError:
+                    payload = None
+
+                if isinstance(payload, dict) and payload.get("type") == "user_list":
+                    # Dispatch user list update event
+                    event = Event(USER_LIST_UPDATED, {"users": payload.get("users", [])})
+                    self.dispatcher.notify(event)
+                else:
+                    # Dispatch regular message received event
+                    event = Event(MESSAGE_RECEIVED, {"message": message})
+                    self.dispatcher.notify(event)
         except (ConnectionClosedError, ConnectionClosedOK):
             pass
         except Exception as error:

@@ -21,7 +21,8 @@ from core.events.events import (
     CLEAR_CHAT,
 )
 from core.events.dispatcher import EventDispatcher
-from .components import ChatDisplay, ConnectionPanel, MessageInput, StatusBar
+from .components import Sidebar, ChatArea, MessageInput, StatusPanel, UsersPanel
+from .theme.theme_manager import ThemeManager
 
 
 class MainWindow(Observer):
@@ -42,8 +43,8 @@ class MainWindow(Observer):
         self.dispatcher = dispatcher
         self.root = ctk.CTk()
         self.root.title("P2P Messenger Client")
-        self.root.geometry("1100x700")
-        self.root.minsize(900, 500)
+        self.root.geometry("1200x800")
+        self.root.minsize(1000, 600)
         
         # Set CustomTkinter theme
         ctk.set_appearance_mode("dark")
@@ -52,6 +53,9 @@ class MainWindow(Observer):
         self.server_ip_var = tk.StringVar(value="127.0.0.1")
         self.server_port_var = tk.StringVar(value="8765")
         self.username_var = tk.StringVar(value="")
+
+        # Initialize theme manager
+        self.theme_manager = ThemeManager(dispatcher)
 
         self._build_ui()
         self._bind_events()
@@ -63,59 +67,55 @@ class MainWindow(Observer):
         dispatcher.attach(self)
 
     def _build_ui(self) -> None:
-        """Build the UI layout."""
-        main_container = ctk.CTkFrame(self.root)
-        main_container.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-
+        """Build the UI layout with sidebar, chat area, and message input."""
+        # Configure root window grid
         self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_rowconfigure(1, weight=0)
         self.root.grid_columnconfigure(0, weight=1)
-        main_container.grid_rowconfigure(2, weight=1)
-        main_container.grid_columnconfigure(0, weight=1)
 
-        header_frame = ctk.CTkFrame(main_container)
-        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        header_frame.grid_columnconfigure(0, weight=1)
+        # Main content frame (sidebar + chat area + users panel)
+        main_frame = ctk.CTkFrame(self.root, fg_color="#0f172a")
+        main_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=(10, 5))
+        main_frame.grid_rowconfigure(0, weight=1)
+        main_frame.grid_columnconfigure(0, weight=0)  # Sidebar
+        main_frame.grid_columnconfigure(1, weight=1)  # Chat area
+        main_frame.grid_columnconfigure(2, weight=0)  # Users panel
 
-        ctk.CTkLabel(header_frame, text="P2P Messenger", font=("", 12, "bold")).grid(row=0, column=0, sticky="w")
-        self.connection_status_label = ctk.CTkLabel(header_frame, text="Disconnected", font=("", 9))
-        self.connection_status_label.grid(row=0, column=1, sticky="e")
-
-        self.connection_panel = ConnectionPanel(
-            main_container,
+        # Sidebar
+        self.sidebar = Sidebar(
+            main_frame,
             ip_var=self.server_ip_var,
             port_var=self.server_port_var,
             username_var=self.username_var,
             connect_command=self._on_connect,
+            disconnect_command=self._on_disconnect,
+            theme_manager=self.theme_manager
         )
-        self.connection_panel.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        self.sidebar.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=0)
 
-        content_frame = ctk.CTkFrame(main_container)
-        content_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 10))
-        content_frame.grid_rowconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(0, weight=1)
+        # Chat area
+        self.chat_area = ChatArea(main_frame, self.theme_manager)
+        self.chat_area.grid(row=0, column=1, sticky="nsew", padx=(5, 5), pady=0)
 
-        self.chat_display = ChatDisplay(content_frame)
-        self.chat_display.grid(row=0, column=0, sticky="nsew")
+        # Users panel
+        self.users_panel = UsersPanel(main_frame, self.dispatcher, self.theme_manager)
+        self.users_panel.grid(row=0, column=2, sticky="nsew", padx=(5, 0), pady=0)
 
-        self.message_input = MessageInput(main_container, send_command=self._on_send)
-        self.message_input.grid(row=3, column=0, sticky="ew", pady=(0, 10))
-
-        self.status_bar = StatusBar(main_container)
-        self.status_bar.grid(row=4, column=0, sticky="ew")
+        # Message input (bottom, spans full width)
+        self.message_input = MessageInput(self.root, send_command=self._on_send, theme_manager=self.theme_manager)
+        self.message_input.grid(row=1, column=0, sticky="ew", padx=10, pady=(5, 10))
 
     def _bind_events(self) -> None:
         """Bind keyboard shortcuts."""
         self.root.bind("<Control-l>", lambda event: self._clear_chat())
-        self.message_input.entry.bind("<Control-a>", self._select_all)
-        self.message_input.entry.bind("<KeyRelease>", lambda event: self.message_input.update_char_count())
-        self.message_input.entry.bind("<Return>", lambda event: self._on_send() if self.message_input.send_button.cget("state") == "normal" else None)
+        # Note: MessageInput handles its own key bindings internally
 
     def _setup_context_menu(self) -> None:
         """Setup right-click context menu."""
         self.context_menu = tk.Menu(self.root, tearoff=0)
         self.context_menu.add_command(label="Copy All", command=self._copy_chat)
         self.context_menu.add_command(label="Clear", command=self._clear_chat)
-        self.chat_display.canvas.bind("<Button-3>", self._show_context_menu)
+        self.chat_area.canvas.bind("<Button-3>", self._show_context_menu)
 
     def _show_context_menu(self, event: tk.Event) -> None:
         """Show context menu at mouse position."""
@@ -123,11 +123,6 @@ class MainWindow(Observer):
             self.context_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.context_menu.grab_release()
-
-    def _select_all(self, event: tk.Event) -> str:
-        """Select all text in message input."""
-        self.message_input.entry.selection_range(0, tk.END)
-        return "break"
 
     def _on_connect(self) -> None:
         """Handle connect button click."""
@@ -141,43 +136,43 @@ class MainWindow(Observer):
         )
         self.dispatcher.notify(event)
 
+    def _on_disconnect(self) -> None:
+        """Handle disconnect button click."""
+        event = Event(DISCONNECT_REQUEST, {})
+        self.dispatcher.notify(event)
+
     def _on_send(self) -> None:
         """Handle send button click."""
-        event = Event(
-            SEND_MESSAGE,
-            {
-                "text": self.message_input.text_var.get(),
-                "username": self.username_var.get(),
-            }
-        )
-        self.dispatcher.notify(event)
-        self.message_input.clear()
+        text = self.message_input.get_text().strip()
+        if text:
+            event = Event(
+                SEND_MESSAGE,
+                {
+                    "text": text,
+                    "username": self.username_var.get(),
+                }
+            )
+            self.dispatcher.notify(event)
+            self.message_input.clear()
 
     def _clear_chat(self) -> None:
         """Clear chat history."""
         if messagebox.askyesno("Clear Chat", "Clear all messages?"):
-            self.chat_display.clear()
-            self.status_bar.set_message_count(0)
-            event = Event(CLEAR_CHAT, {})
-            self.dispatcher.notify(event)
+            self.chat_area.clear()
+            # Note: No message count tracking in new design
 
     def _copy_chat(self) -> None:
         """Copy chat content to clipboard."""
-        content = self.chat_display.copy_all()
+        content = self.chat_area.copy_all()
         self.root.clipboard_clear()
         self.root.clipboard_append(content)
-        self._set_status("Chat copied to clipboard")
-        self.root.after(2000, lambda: self._set_status(self.status_bar.status_label.cget("text")))
+        # Note: Status message not shown in new design
 
     def _on_close(self) -> None:
         """Handle window close."""
         event = Event(DISCONNECT_REQUEST, {})
         self.dispatcher.notify(event)
         self.root.destroy()
-
-    def _set_status(self, text: str) -> None:
-        """Set status bar text."""
-        self.status_bar.set_status(text)
 
     def update(self, event: Event) -> None:
         """
@@ -221,47 +216,43 @@ class MainWindow(Observer):
                     text = "You joined the chat"
                 else:
                     text = f"User {user} joined the chat"
-                self.chat_display.append_system(text, now)
+                self.chat_area.add_system_message(text, now)
             elif event_type == "leave":
                 current_user = self.username_var.get().strip()
                 if user and user == current_user:
                     text = "You left the chat"
                 else:
                     text = f"User {user} left the chat"
-                self.chat_display.append_system(text, now)
+                self.chat_area.add_system_message(text, now)
             else:
                 message = MessageModel(message_text)
                 formatted = message.formatted()
                 text, timestamp, is_own = self._parse_message(formatted)
-                self.chat_display.add_message(text, is_own, timestamp)
-                self.status_bar.increment_message_count()
+                username = user if not is_own else ""
+                self.chat_area.add_message(text, is_own, timestamp, username)
         else:
             message = MessageModel(message_text)
             formatted = message.formatted()
             text, timestamp, is_own = self._parse_message(formatted)
-            self.chat_display.add_message(text, is_own, timestamp)
-            self.status_bar.increment_message_count()
+            self.chat_area.add_message(text, is_own, timestamp)
 
     def _handle_connection_changed(self, event: Event) -> None:
         """Handle connection state change event."""
         connected = event.data.get("connected", False)
         
         if connected:
-            self._set_status("Connected")
-            self.connection_status_label.configure(text="Connected")
-            self.message_input.send_button.configure(state="normal")
-            self.connection_panel.connect_button.configure(state="disabled")
+            self.sidebar.update_connection_status(True)
+            self.message_input.set_send_enabled(True)
         else:
-            self._set_status("Disconnected")
-            self.connection_status_label.configure(text="Disconnected")
-            self.message_input.send_button.configure(state="disabled")
-            self.connection_panel.connect_button.configure(state="normal")
+            self.sidebar.update_connection_status(False)
+            self.message_input.set_send_enabled(False)
 
     def _handle_error(self, event: Event) -> None:
         """Handle error event."""
         error_text = str(event.data.get("error", "Connection error"))
-        self._set_status(f"Connection error: {error_text}")
-        self.connection_panel.connect_button.configure(state="normal")
+        self.sidebar.update_connection_status(False)
+        self.message_input.set_send_enabled(False)
+        # Could show error in a popup or status area
 
     def _parse_message(self, message: str) -> tuple[str, str, bool]:
         """Parse a formatted message into text, timestamp, and ownership flag."""

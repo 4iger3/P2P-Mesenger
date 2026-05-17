@@ -14,6 +14,13 @@ client_usernames: dict[websockets.WebSocketServerProtocol, str] = {}
 connection_lock = asyncio.Lock()
 
 
+async def broadcast_user_list() -> None:
+    """Broadcast the current user list to all connected clients."""
+    usernames = list(client_usernames.values())
+    user_list_message = json.dumps({"type": "user_list", "users": usernames})
+    await broadcast_message(user_list_message)
+
+
 async def broadcast_message(message: str) -> None:
     """Send a text message to all active clients."""
     disconnected = []
@@ -52,6 +59,7 @@ async def handle_client(websocket: websockets.WebSocketServerProtocol) -> None:
                 client_usernames[websocket] = username
                 join_message = json.dumps({"type": "join", "user": username})
                 await broadcast_message(join_message)
+                await broadcast_user_list()  # Broadcast updated user list
                 continue
 
             await broadcast_message(message)
@@ -66,6 +74,7 @@ async def handle_client(websocket: websockets.WebSocketServerProtocol) -> None:
         if username:
             leave_message = json.dumps({"type": "leave", "user": username})
             await broadcast_message(leave_message)
+            await broadcast_user_list()  # Broadcast updated user list
         print("Client disconnected")
 
 

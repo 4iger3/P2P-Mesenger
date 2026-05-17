@@ -27,8 +27,7 @@ P2P-Messenger/
 ├── core/
 │   ├── __init__.py
 │   ├── state.py
-│   └── message_model.py
-│   │
+│   ├── message_model.py
 │   └── events/
 │       ├── __init__.py
 │       ├── dispatcher.py
@@ -44,7 +43,14 @@ P2P-Messenger/
 ├── ui/
 │   ├── __init__.py
 │   ├── main_window.py
-│   └── components.py
+│   └── components/
+│       ├── __init__.py
+│       ├── sidebar.py
+│       ├── chat_area.py
+│       ├── message_input.py
+│       ├── status_panel.py
+│       ├── chat_bubble.py
+│       └── users_panel.py
 │
 ├── docs/
 │   ├── architecture/

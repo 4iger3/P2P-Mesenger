@@ -26,6 +26,14 @@
      - All components communicate through centered EventDispatcher
      - Thread-safe event dispatch with threading.Lock
      - Reduced coupling between UI, network, and core layers
+6. **Active Users Panel** ✅ **COMPLETE**
+   - **Real-time user tracking** ✅ **COMPLETE**
+     - Server maintains list of connected usernames
+     - Broadcasts user list updates on join/leave events
+     - Client displays active users in dedicated right-side panel
+     - Observer pattern integration for event-driven updates
+     - Dark theme styling with online indicators
+     - Scrollable user list for large groups
 
 ## Core Messaging Functionality
 - Server receives text messages from any client

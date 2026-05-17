@@ -11,17 +11,20 @@ graph TB
     State["AppState\n(Observer)"]
     Network["WebSocketClient\n(Observer)"]
     Server["🖥️ WebSocket Server"]
+    Users["UsersPanel\n(Observer)"]
 
     User -->|Types & Sends| GUI
     GUI -->|SEND_MESSAGE\nCONNECT_REQUEST| Dispatcher
     Dispatcher -->|Notify| UI
     Dispatcher -->|Notify| State
     Dispatcher -->|Notify| Network
-    Network -->|MESSAGE_RECEIVED\nCONNECTION_CHANGED| Dispatcher
+    Dispatcher -->|Notify| Users
+    Network -->|MESSAGE_RECEIVED\nCONNECTION_CHANGED\nUSER_LIST_UPDATED| Dispatcher
     Dispatcher -->|Update| UI
     Dispatcher -->|Update| State
+    Dispatcher -->|Update| Users
     Network -->|WebSocket| Server
-    Server -->|Relay| Network
+    Server -->|Relay + User List| Network
 ```
 
 ## Sequence Diagram
@@ -71,6 +74,35 @@ sequenceDiagram
     GUI-->>User: Nothing happens (event not dispatched)
 ```
 
+## User List Update Flow
+
+```mermaid
+sequenceDiagram
+    participant ClientA as Client A
+    participant Server as Server
+    participant ClientB as Client B
+    participant Users as UsersPanel
+
+    Note over ClientA,Users: User Connection/Disconnection Flow
+    ClientA->>Server: WebSocket connect + auth message
+    Server->>Server: Add username to client_usernames dict
+    Server->>Server: Broadcast join message to all clients
+    Server->>Server: Broadcast user_list message with updated users
+    Server->>ClientA: user_list: ["Alice", "Bob"]
+    Server->>ClientB: user_list: ["Alice", "Bob"]
+    
+    ClientB->>Users: WebSocketClient receives user_list
+    ClientB->>Users: Event(USER_LIST_UPDATED, {"users": ["Alice", "Bob"]})
+    Users->>Users: Update displayed user list
+    
+    ClientA->>Server: WebSocket disconnect
+    Server->>Server: Remove username from client_usernames dict
+    Server->>Server: Broadcast leave message to all clients
+    Server->>Server: Broadcast user_list message with updated users
+    Server->>ClientB: user_list: ["Bob"]
+    ClientB->>Users: Update displayed user list
+```
+
 ## Event Flow Description
 
 The diagram visualizes the Observer pattern implementation with three acceptance criteria:
@@ -95,6 +127,13 @@ The diagram visualizes the Observer pattern implementation with three acceptance
 ### AC-3 (Empty Input): Event Not Dispatched for Invalid Input
 - GUI validates input (non-empty) before creating event
 - No event is dispatched if validation fails
+
+### User List Updates
+- Server maintains `client_usernames` dictionary mapping WebSocket connections to usernames
+- On user join: Add to dict, broadcast join message, broadcast updated user list
+- On user leave: Remove from dict, broadcast leave message, broadcast updated user list
+- Clients receive `user_list` messages and dispatch `USER_LIST_UPDATED` events
+- UsersPanel observer updates the displayed user list with online indicators
 - No processing overhead on network or state layers
 
 ## Key Improvements Over Queue-Based System
