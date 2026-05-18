@@ -167,4 +167,4 @@ class Sidebar(ctk.CTkFrame):
         if self.theme_manager:
             theme = self.theme_manager.get_current_theme()
             color = theme.get_color("status_connected") if connected else theme.get_color("status_disconnected")
-            self.status_label.configure(text_color=color)пше
+            self.status_label.configure(text_color=color)

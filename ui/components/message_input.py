@@ -14,6 +14,7 @@ class MessageInput(ctk.CTkFrame):
     def __init__(self, parent: ctk.CTkFrame, send_command: callable, theme_manager=None) -> None:
         super().__init__(parent, fg_color="#1e1e2e", corner_radius=10)
         self.theme_manager = theme_manager
+        self.send_command = send_command
         self.grid_columnconfigure(0, weight=1)
 
         # Subscribe to theme changes
@@ -121,9 +122,15 @@ class MessageInput(ctk.CTkFrame):
     def _on_send(self) -> None:
         """Handle send button click."""
         text = self.get_text().strip()
-        if text:
-            self.send_command()
-            self.clear()
+        if not text:
+            return
+
+        if self.send_command is None:
+            print("Warning: send_command not configured for MessageInput")
+            return
+
+        self.send_command()
+        self.clear()
 
     def _on_enter_pressed(self, event) -> str:
         """Handle Enter key press."""
