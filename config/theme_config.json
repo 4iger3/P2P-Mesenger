@@ -1,6 +1,6 @@
 {
-  "theme": "telegram",
-  "mode": "light",
+  "theme": "dark_blue",
+  "mode": "dark",
   "accent_color": "#4CAF50",
   "custom_colors": {}
 }

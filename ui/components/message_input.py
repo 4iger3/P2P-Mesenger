@@ -9,10 +9,11 @@ import customtkinter as ctk
 class MessageInput(ctk.CTkFrame):
     """
     Bottom message input area with multiline text, send button, and character counter.
+    Fully theme-aware with support for light and dark modes.
     """
 
     def __init__(self, parent: ctk.CTkFrame, send_command: callable, theme_manager=None) -> None:
-        super().__init__(parent, fg_color="#1e1e2e", corner_radius=10)
+        super().__init__(parent, fg_color="transparent", corner_radius=10)
         self.theme_manager = theme_manager
         self.send_command = send_command
         self.grid_columnconfigure(0, weight=1)
@@ -26,24 +27,23 @@ class MessageInput(ctk.CTkFrame):
         header_frame.grid(row=0, column=0, sticky="ew", padx=15, pady=(10, 5))
         header_frame.grid_columnconfigure(0, weight=1)
 
-        title_label = ctk.CTkLabel(header_frame, text="Send Message", font=("", 12, "bold"),
-                                   text_color="#ffffff")
+        title_label = ctk.CTkLabel(header_frame, text="Send Message", font=("", 12, "bold"))
         title_label.grid(row=0, column=0, sticky="w")
+        self.title_label = title_label
 
         # Input area
-        input_frame = ctk.CTkFrame(self, fg_color="#2a2d3a", corner_radius=8)
+        input_frame = ctk.CTkFrame(self, corner_radius=8)
         input_frame.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 10))
         input_frame.grid_columnconfigure(0, weight=1)
         input_frame.grid_rowconfigure(0, weight=1)
+        self.input_frame = input_frame
 
         # Multiline text input
-        self.textbox = ctk.CTkTextbox(input_frame, wrap="word", fg_color="#2a2d3a",
-                                      border_color="#404040", corner_radius=6)
+        self.textbox = ctk.CTkTextbox(input_frame, wrap="word", corner_radius=6)
         self.textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         # Send button
-        self.send_button = ctk.CTkButton(input_frame, text="Send", command=self._on_send,
-                                         width=80, fg_color="#4CAF50", hover_color="#45a049")
+        self.send_button = ctk.CTkButton(input_frame, text="Send", command=self._on_send, width=80)
         self.send_button.grid(row=0, column=1, sticky="ns", padx=(10, 10), pady=10)
         self.send_button.configure(state="disabled")
 
@@ -52,16 +52,19 @@ class MessageInput(ctk.CTkFrame):
         controls_frame.grid(row=2, column=0, sticky="ew", padx=15, pady=(0, 10))
         controls_frame.grid_columnconfigure(1, weight=1)
 
-        self.char_count_label = ctk.CTkLabel(controls_frame, text="0 / 500",
-                                             font=("", 9), text_color="#8b98a5")
+        self.char_count_label = ctk.CTkLabel(controls_frame, text="0 / 500", font=("", 9))
         self.char_count_label.grid(row=0, column=0, sticky="w")
 
         # Enter to send checkbox
         self.enter_to_send_var = tk.BooleanVar(value=True)
-        enter_checkbox = ctk.CTkCheckBox(controls_frame, text="Enter to send",
-                                         variable=self.enter_to_send_var,
-                                         font=("", 9), text_color="#c0c0c0")
+        enter_checkbox = ctk.CTkCheckBox(
+            controls_frame, 
+            text="Enter to send",
+            variable=self.enter_to_send_var,
+            font=("", 9)
+        )
         enter_checkbox.grid(row=0, column=2, sticky="e")
+        self.enter_checkbox = enter_checkbox
 
         # Bind events
         self.textbox.bind("<KeyRelease>", self._update_char_count)
@@ -86,38 +89,31 @@ class MessageInput(ctk.CTkFrame):
         self.configure(fg_color=theme.get_color("bg_secondary"))
 
         # Update header label
-        for child in self.winfo_children():
-            if isinstance(child, ctk.CTkFrame) and child.cget("fg_color") == "transparent":
-                for subchild in child.winfo_children():
-                    if isinstance(subchild, ctk.CTkLabel):
-                        subchild.configure(text_color=theme.get_color("text_primary"))
+        self.title_label.configure(text_color=theme.get_color("text_primary"))
 
         # Update input frame
-        for child in self.winfo_children():
-            if isinstance(child, ctk.CTkFrame) and child.cget("fg_color") != "transparent":
-                child.configure(fg_color=theme.get_color("bg_tertiary"))
+        self.input_frame.configure(fg_color=theme.get_color("bg_tertiary"))
 
-        # Update textbox
+        # Update textbox with theme-aware colors
         self.textbox.configure(
-            fg_color=theme.get_color("bg_tertiary"),
-            border_color=theme.get_color("border_primary")
+            fg_color=theme.get_color("input_bg"),
+            text_color=theme.get_color("input_text"),
+            border_color=theme.get_color("input_border"),
+            scrollbar_button_color=theme.get_color("scrollbar_button"),
         )
 
         # Update send button
         self.send_button.configure(
             fg_color=theme.get_color("button_primary"),
-            hover_color=theme.get_color("button_primary_hover")
+            hover_color=theme.get_color("button_primary_hover"),
+            text_color=theme.get_color("text_primary")
         )
 
         # Update char count label
         self.char_count_label.configure(text_color=theme.get_color("text_muted"))
 
         # Update checkbox
-        for child in self.winfo_children():
-            if isinstance(child, ctk.CTkFrame):
-                for subchild in child.winfo_children():
-                    if isinstance(subchild, ctk.CTkCheckBox):
-                        subchild.configure(text_color=theme.get_color("text_secondary"))
+        self.enter_checkbox.configure(text_color=theme.get_color("text_secondary"))
 
     def _on_send(self) -> None:
         """Handle send button click."""
@@ -136,12 +132,12 @@ class MessageInput(ctk.CTkFrame):
         """Handle Enter key press."""
         if self.enter_to_send_var.get():
             self._on_send()
-            return "break"  # Prevent default newline
+            return "break"
         return None
 
     def _on_shift_enter(self, event) -> str:
         """Handle Shift+Enter for newline."""
-        return None  # Allow default behavior
+        return None
 
     def _update_char_count(self, event=None) -> None:
         """Update character count display."""
@@ -149,7 +145,6 @@ class MessageInput(ctk.CTkFrame):
         count = len(text)
         self.char_count_label.configure(text=f"{count} / 500")
 
-        # Limit text length
         if count > 500:
             self.textbox.delete("1.0 + 500 chars", "end")
 

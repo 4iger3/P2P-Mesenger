@@ -22,6 +22,8 @@ from core.events.events import (
 )
 from core.events.dispatcher import EventDispatcher
 from .components import Sidebar, ChatArea, MessageInput, StatusPanel, UsersPanel
+from .components.connection_dialog import ConnectionSettingsDialog
+from .components.settings_window import SettingsWindow
 from .theme.theme_manager import ThemeManager
 
 
@@ -56,6 +58,9 @@ class MainWindow(Observer):
 
         # Initialize theme manager
         self.theme_manager = ThemeManager(dispatcher)
+        self.settings_window = None
+        self.connection_dialog = None
+        self.connected = False
 
         self._build_ui()
         self._bind_events()
@@ -84,11 +89,8 @@ class MainWindow(Observer):
         # Sidebar
         self.sidebar = Sidebar(
             main_frame,
-            ip_var=self.server_ip_var,
-            port_var=self.server_port_var,
-            username_var=self.username_var,
-            connect_command=self._on_connect,
-            disconnect_command=self._on_disconnect,
+            connection_settings_command=self._open_connection_dialog,
+            settings_command=self._open_settings_window,
             theme_manager=self.theme_manager
         )
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=0)
@@ -110,6 +112,44 @@ class MainWindow(Observer):
         self.root.bind("<Control-l>", lambda event: self._clear_chat())
         # Note: MessageInput handles its own key bindings internally
 
+    def _open_settings_window(self) -> None:
+        """Open the settings popup window or bring it to the front."""
+        if self.settings_window and self.settings_window.winfo_exists():
+            self.settings_window.lift()
+            self.settings_window.focus_force()
+            return
+
+        self.settings_window = SettingsWindow(self.root, self.theme_manager)
+        self.settings_window.bind("<Destroy>", self._on_settings_window_destroy)
+
+    def _open_connection_dialog(self) -> None:
+        """Open the connection dialog or bring it to the front."""
+        if self.connection_dialog and self.connection_dialog.winfo_exists():
+            self.connection_dialog.lift()
+            self.connection_dialog.focus_force()
+            return
+
+        self.connection_dialog = ConnectionSettingsDialog(
+            self.root,
+            dispatcher=self.dispatcher,
+            ip_var=self.server_ip_var,
+            port_var=self.server_port_var,
+            username_var=self.username_var,
+            theme_manager=self.theme_manager,
+        )
+        self.connection_dialog.update_connection_status(self.connected)
+        self.connection_dialog.bind("<Destroy>", self._on_connection_dialog_destroy)
+
+    def _on_connection_dialog_destroy(self, event: tk.Event) -> None:
+        """Clear the stored connection dialog reference when it closes."""
+        if event.widget is self.connection_dialog:
+            self.connection_dialog = None
+
+    def _on_settings_window_destroy(self, event: tk.Event) -> None:
+        """Clear the stored settings window reference when it closes."""
+        if event.widget is self.settings_window:
+            self.settings_window = None
+
     def _setup_context_menu(self) -> None:
         """Setup right-click context menu."""
         self.context_menu = tk.Menu(self.root, tearoff=0)
@@ -123,23 +163,6 @@ class MainWindow(Observer):
             self.context_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.context_menu.grab_release()
-
-    def _on_connect(self) -> None:
-        """Handle connect button click."""
-        event = Event(
-            CONNECT_REQUEST,
-            {
-                "host": self.server_ip_var.get(),
-                "port": self.server_port_var.get(),
-                "username": self.username_var.get(),
-            }
-        )
-        self.dispatcher.notify(event)
-
-    def _on_disconnect(self) -> None:
-        """Handle disconnect button click."""
-        event = Event(DISCONNECT_REQUEST, {})
-        self.dispatcher.notify(event)
 
     def _on_send(self) -> None:
         """Handle send button click."""
@@ -240,17 +263,22 @@ class MainWindow(Observer):
         """Handle connection state change event."""
         connected = event.data.get("connected", False)
         
+        self.connected = connected
         if connected:
-            self.sidebar.update_connection_status(True)
+            if self.connection_dialog and self.connection_dialog.winfo_exists():
+                self.connection_dialog.update_connection_status(True)
             self.message_input.set_send_enabled(True)
         else:
-            self.sidebar.update_connection_status(False)
+            if self.connection_dialog and self.connection_dialog.winfo_exists():
+                self.connection_dialog.update_connection_status(False)
             self.message_input.set_send_enabled(False)
 
     def _handle_error(self, event: Event) -> None:
         """Handle error event."""
         error_text = str(event.data.get("error", "Connection error"))
-        self.sidebar.update_connection_status(False)
+        self.connected = False
+        if self.connection_dialog and self.connection_dialog.winfo_exists():
+            self.connection_dialog.update_connection_status(False)
         self.message_input.set_send_enabled(False)
         # Could show error in a popup or status area
 

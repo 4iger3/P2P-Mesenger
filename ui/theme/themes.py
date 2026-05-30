@@ -55,6 +55,26 @@ DARK_BLUE_THEME = Theme("Dark Blue", {
     "button_danger": "#f44336",      # Danger buttons
     "button_danger_hover": "#da190b",
 
+    # Input/form colors
+    "input_bg": "#2a2d3a",           # Input field background
+    "input_text": "#ffffff",         # Input field text
+    "input_border": "#404040",       # Input field border
+
+    # Component-specific colors
+    "chat_bg": "#0f172a",            # Chat area background
+    "chat_text": "#ffffff",          # Chat text
+    "sidebar_bg": "#1e1e2e",         # Sidebar background
+    "sidebar_text": "#ffffff",       # Sidebar text
+    "panel_bg": "#2a2d3a",           # Panel background
+    "panel_secondary": "#1e1e2e",    # Secondary panel color
+    
+    # Scrollbar colors
+    "scrollbar_fg": "#404040",       # Scrollbar foreground
+    "scrollbar_button": "#555555",   # Scrollbar button
+
+    # User list colors
+    "userlist_bg": "#1e1e2e",        # User list background
+
     # Accent color (customizable)
     "accent": "#4CAF50"
 })
@@ -92,6 +112,26 @@ DISCORD_THEME = Theme("Discord Style", {
     "button_danger": "#f04747",       # Discord red
     "button_danger_hover": "#d84040",
 
+    # Input/form colors
+    "input_bg": "#40444b",           # Input field background
+    "input_text": "#ffffff",         # Input field text
+    "input_border": "#202225",       # Input field border
+
+    # Component-specific colors
+    "chat_bg": "#36393f",            # Chat area background
+    "chat_text": "#ffffff",          # Chat text
+    "sidebar_bg": "#2f3136",         # Sidebar background
+    "sidebar_text": "#ffffff",       # Sidebar text
+    "panel_bg": "#40444b",           # Panel background
+    "panel_secondary": "#2f3136",    # Secondary panel color
+    
+    # Scrollbar colors
+    "scrollbar_fg": "#202225",       # Scrollbar foreground
+    "scrollbar_button": "#40444b",   # Scrollbar button
+
+    # User list colors
+    "userlist_bg": "#2f3136",        # User list background
+
     # Accent color
     "accent": "#5865f2"
 })
@@ -100,11 +140,11 @@ TELEGRAM_THEME = Theme("Telegram Style", {
     # Background colors
     "bg_primary": "#ffffff",      # Telegram light background
     "bg_secondary": "#f0f0f0",    # Panel backgrounds
-    "bg_tertiary": "#033325",     # Input fields
+    "bg_tertiary": "#ffffff",     # Input fields - WHITE in light theme
     "bg_accent": "#c4f1f1",       # Accent backgrounds
 
     # Text colors
-    "text_primary": "#000000",    # Primary text
+    "text_primary": "#000000",    # Primary text - BLACK for light theme
     "text_secondary": "#666666",  # Secondary text
     "text_muted": "#999999",      # Muted text
     "text_accent": "#0088cc",     # Telegram blue
@@ -128,6 +168,26 @@ TELEGRAM_THEME = Theme("Telegram Style", {
     "button_primary_hover": "#0077b3",
     "button_danger": "#ff6b6b",       # Red
     "button_danger_hover": "#ff5252",
+
+    # Input/form colors - WHITE background with BLACK text
+    "input_bg": "#ffffff",           # Input field background - WHITE
+    "input_text": "#000000",         # Input field text - BLACK
+    "input_border": "#cccccc",       # Input field border
+
+    # Component-specific colors
+    "chat_bg": "#ffffff",            # Chat area background
+    "chat_text": "#000000",          # Chat text - BLACK
+    "sidebar_bg": "#f0f0f0",         # Sidebar background
+    "sidebar_text": "#000000",       # Sidebar text - BLACK
+    "panel_bg": "#f0f0f0",           # Panel background
+    "panel_secondary": "#ffffff",    # Secondary panel color
+    
+    # Scrollbar colors
+    "scrollbar_fg": "#cccccc",       # Scrollbar foreground
+    "scrollbar_button": "#dddddd",   # Scrollbar button
+
+    # User list colors
+    "userlist_bg": "#f0f0f0",        # User list background
 
     # Accent color
     "accent": "#0088cc"

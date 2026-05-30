@@ -9,6 +9,8 @@ from .status_panel import StatusPanel
 from .chat_bubble import ChatBubble, SystemMessage
 from .users_panel import UsersPanel
 from .theme_settings import ThemeSettings
+from .settings_window import SettingsWindow
+from .connection_dialog import ConnectionSettingsDialog
 
 __all__ = [
     "Sidebar",
@@ -19,4 +21,6 @@ __all__ = [
     "SystemMessage",
     "UsersPanel",
     "ThemeSettings",
+    "SettingsWindow",
+    "ConnectionSettingsDialog",
 ]

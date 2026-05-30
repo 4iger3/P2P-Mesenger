@@ -13,7 +13,7 @@ class ChatArea(ctk.CTkFrame):
     """
 
     def __init__(self, parent: ctk.CTkFrame, theme_manager=None) -> None:
-        super().__init__(parent, fg_color="#0f172a", corner_radius=10)
+        super().__init__(parent, fg_color="transparent", corner_radius=10)
         self.theme_manager = theme_manager
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -23,13 +23,14 @@ class ChatArea(ctk.CTkFrame):
             theme_manager.subscribe_to_theme_changes(self._on_theme_changed)
 
         # Header
-        header_frame = ctk.CTkFrame(self, fg_color="#1e1e2e", corner_radius=8)
+        header_frame = ctk.CTkFrame(self, fg_color="transparent", corner_radius=8)
         header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
         header_frame.grid_columnconfigure(0, weight=1)
+        self.header_frame = header_frame
 
-        title_label = ctk.CTkLabel(header_frame, text="Chat", font=("", 14, "bold"),
-                                   text_color="#ffffff")
+        title_label = ctk.CTkLabel(header_frame, text="Chat", font=("", 14, "bold"))
         title_label.grid(row=0, column=0, sticky="w", padx=15, pady=10)
+        self.title_label = title_label
 
         # Chat display area
         self.canvas = tk.Canvas(self, bg="#0f172a", highlightthickness=0)
@@ -63,20 +64,15 @@ class ChatArea(ctk.CTkFrame):
         theme = self.theme_manager.get_current_theme()
 
         # Update main frame
-        self.configure(fg_color=theme.get_color("bg_primary"))
+        self.configure(fg_color=theme.get_color("chat_bg"))
 
         # Update header
-        for child in self.winfo_children():
-            if isinstance(child, ctk.CTkFrame):
-                # Header frame
-                child.configure(fg_color=theme.get_color("bg_secondary"))
-                for subchild in child.winfo_children():
-                    if isinstance(subchild, ctk.CTkLabel):
-                        subchild.configure(text_color=theme.get_color("text_primary"))
+        self.header_frame.configure(fg_color=theme.get_color("bg_secondary"))
+        self.title_label.configure(text_color=theme.get_color("text_primary"))
 
         # Update canvas background
-        self.canvas.configure(bg=theme.get_color("bg_primary"))
-        self.scrollable_frame.configure(bg=theme.get_color("bg_primary"))
+        self.canvas.configure(bg=theme.get_color("chat_bg"))
+        self.scrollable_frame.configure(bg=theme.get_color("chat_bg"))
 
     def _on_frame_configure(self, event: tk.Event) -> None:
         """Update scroll region when frame content changes."""

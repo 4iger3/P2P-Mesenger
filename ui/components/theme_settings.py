@@ -2,6 +2,7 @@
 Theme settings component for the P2P Messenger.
 
 Allows users to customize themes, colors, and appearance settings.
+Provides a scrollable panel for theme selection and customization.
 """
 
 import tkinter as tk
@@ -14,12 +15,14 @@ from core.events.events import THEME_CHANGED, ACCENT_COLOR_CHANGED
 class ThemeSettings(ctk.CTkFrame, Observer):
     """
     Theme settings panel with theme selection and customization options.
+    Uses a scrollable container to handle overflow on smaller screens.
     """
 
     def __init__(self, parent: ctk.CTkFrame, theme_manager: ThemeManager) -> None:
         super().__init__(parent, fg_color="transparent")
         self.theme_manager = theme_manager
         self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
 
         # Subscribe to theme changes
         theme_manager.subscribe_to_theme_changes(self._on_theme_changed)
@@ -27,14 +30,21 @@ class ThemeSettings(ctk.CTkFrame, Observer):
         # Title
         title_label = ctk.CTkLabel(self, text="Theme Settings", font=("", 12, "bold"))
         title_label.grid(row=0, column=0, sticky="w", pady=(10, 5))
+        self.title_label = title_label
+
+        # Scrollable frame for theme settings
+        self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.scroll_frame.grid(row=1, column=0, sticky="nsew", pady=(0, 10))
+        self.scroll_frame.grid_columnconfigure(0, weight=1)
 
         # Theme selection
-        theme_frame = ctk.CTkFrame(self)
-        theme_frame.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        theme_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        theme_frame.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         theme_frame.grid_columnconfigure(1, weight=1)
 
         theme_label = ctk.CTkLabel(theme_frame, text="Theme:", font=("", 10))
-        theme_label.grid(row=0, column=0, sticky="w", padx=10, pady=5)
+        theme_label.grid(row=0, column=0, sticky="w", padx=0, pady=5)
+        self.theme_label = theme_label
 
         self.theme_var = tk.StringVar(value=theme_manager.config.get_theme_name())
         self.theme_menu = ctk.CTkOptionMenu(
@@ -43,15 +53,16 @@ class ThemeSettings(ctk.CTkFrame, Observer):
             variable=self.theme_var,
             command=self._on_theme_selected
         )
-        self.theme_menu.grid(row=0, column=1, sticky="ew", padx=(0, 10), pady=5)
+        self.theme_menu.grid(row=0, column=1, sticky="ew", padx=(10, 0), pady=5)
 
         # Mode selection
-        mode_frame = ctk.CTkFrame(self)
-        mode_frame.grid(row=2, column=0, sticky="ew", pady=(0, 10))
+        mode_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        mode_frame.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         mode_frame.grid_columnconfigure(1, weight=1)
 
         mode_label = ctk.CTkLabel(mode_frame, text="Mode:", font=("", 10))
-        mode_label.grid(row=0, column=0, sticky="w", padx=10, pady=5)
+        mode_label.grid(row=0, column=0, sticky="w", padx=0, pady=5)
+        self.mode_label = mode_label
 
         self.mode_var = tk.StringVar(value=theme_manager.config.get_mode())
         self.mode_menu = ctk.CTkOptionMenu(
@@ -60,15 +71,16 @@ class ThemeSettings(ctk.CTkFrame, Observer):
             variable=self.mode_var,
             command=self._on_mode_selected
         )
-        self.mode_menu.grid(row=0, column=1, sticky="ew", padx=(0, 10), pady=5)
+        self.mode_menu.grid(row=0, column=1, sticky="ew", padx=(10, 0), pady=5)
 
         # Accent color
-        accent_frame = ctk.CTkFrame(self)
-        accent_frame.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        accent_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        accent_frame.grid(row=2, column=0, sticky="ew", pady=(0, 10))
         accent_frame.grid_columnconfigure(1, weight=1)
 
         accent_label = ctk.CTkLabel(accent_frame, text="Accent Color:", font=("", 10))
-        accent_label.grid(row=0, column=0, sticky="w", padx=10, pady=5)
+        accent_label.grid(row=0, column=0, sticky="w", padx=0, pady=5)
+        self.accent_label = accent_label
 
         self.accent_var = tk.StringVar(value=theme_manager.config.get_accent_color())
         self.accent_entry = ctk.CTkEntry(
@@ -76,15 +88,16 @@ class ThemeSettings(ctk.CTkFrame, Observer):
             textvariable=self.accent_var,
             placeholder_text="#4CAF50"
         )
-        self.accent_entry.grid(row=0, column=1, sticky="ew", padx=(0, 10), pady=5)
+        self.accent_entry.grid(row=0, column=1, sticky="ew", padx=(10, 0), pady=5)
 
         # Apply button
         apply_button = ctk.CTkButton(
-            self,
+            self.scroll_frame,
             text="Apply Accent Color",
             command=self._on_apply_accent
         )
-        apply_button.grid(row=4, column=0, sticky="ew", pady=(0, 10))
+        apply_button.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        self.apply_button = apply_button
 
         # Update colors based on current theme
         self._update_colors()
@@ -111,24 +124,30 @@ class ThemeSettings(ctk.CTkFrame, Observer):
         """Update component colors based on current theme."""
         theme = self.theme_manager.get_current_theme()
 
-        # Update frame colors
+        # Update main frame and scroll frame
         self.configure(fg_color=theme.get_color("bg_secondary"))
+        self.scroll_frame.configure(fg_color=theme.get_color("bg_secondary"))
 
         # Update labels
-        for child in self.winfo_children():
-            if isinstance(child, ctk.CTkLabel):
-                child.configure(text_color=theme.get_color("text_primary"))
-            elif isinstance(child, ctk.CTkFrame):
-                child.configure(fg_color=theme.get_color("bg_tertiary"))
+        self.title_label.configure(text_color=theme.get_color("text_primary"))
+        self.theme_label.configure(text_color=theme.get_color("text_secondary"))
+        self.mode_label.configure(text_color=theme.get_color("text_secondary"))
+        self.accent_label.configure(text_color=theme.get_color("text_secondary"))
 
         # Update entry
-        if hasattr(self, 'accent_entry'):
-            self.accent_entry.configure(
-                fg_color=theme.get_color("bg_tertiary"),
-                border_color=theme.get_color("border_primary")
-            )
+        self.accent_entry.configure(
+            fg_color=theme.get_color("input_bg"),
+            text_color=theme.get_color("input_text"),
+            border_color=theme.get_color("input_border")
+        )
+
+        # Update apply button
+        self.apply_button.configure(
+            fg_color=theme.get_color("button_primary"),
+            hover_color=theme.get_color("button_primary_hover"),
+            text_color=theme.get_color("text_primary")
+        )
 
     def update(self, event) -> None:
         """Handle events from dispatcher."""
-        # Theme events are handled through the theme manager subscription
         pass
