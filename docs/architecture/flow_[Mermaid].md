@@ -9,27 +9,32 @@ graph TB
     Dispatcher["EventDispatcher\n(Subject)"]
     UI["MainWindow\n(Observer)"]
     State["AppState\n(Observer)"]
+    Controller["Controller\n(Observer)"]
     Network["WebSocketClient\n(Observer)"]
     Server["🖥️ WebSocket Server"]
-    Database["SQLite Database\n(data/messenger.db)"]
+    Database["DatabaseManager\n(SQLite)"]
     Users["UsersPanel\n(Observer)"]
     PrivateChat["PrivateChatWindow\n(Observer)"]
+    WindowManager["PrivateChatWindowManager\n(Window Manager)"]
 
     User -->|Types & Sends| GUI
     GUI -->|SEND_MESSAGE\nCONNECT_REQUEST\nOPEN_PRIVATE_CHAT| Dispatcher
     Dispatcher -->|Notify| UI
     Dispatcher -->|Notify| State
+    Dispatcher -->|Notify| Controller
     Dispatcher -->|Notify| Network
     Dispatcher -->|Notify| Users
     Dispatcher -->|Notify| PrivateChat
+    Dispatcher -->|Notify| WindowManager
+    Controller -->|send_message(...)| Network
     Network -->|MESSAGE_RECEIVED\nPRIVATE_MESSAGE_RECEIVED\nCONNECTION_CHANGED\nUSER_LIST_UPDATED| Dispatcher
     Dispatcher -->|Update| UI
     Dispatcher -->|Update| State
     Dispatcher -->|Update| Users
     Dispatcher -->|Update| PrivateChat
     Network -->|WebSocket| Server
-    Server -->|Relay Public\nRoute Private\nUser List| Network
-    Server -->|Persist users/messages| Database
+    Server -->|Broadcast public/private/user_list| Network
+    Server -->|Persist public/private messages| Database
 ```
 
 ## Public Message Sending Sequence
@@ -39,6 +44,7 @@ sequenceDiagram
     participant User as User
     participant GUI as GUI (MainWindow)
     participant Disp as EventDispatcher
+    participant Ctrl as Controller
     participant Net as WebSocketClient
     participant Server as Server
     participant Others as Other Clients
@@ -52,9 +58,10 @@ sequenceDiagram
     GUI->>Disp: dispatcher.notify(Event(SEND_MESSAGE, {...}))
     
     Note over Disp: EventDispatcher notifies all observers
-    Disp->>Net: update(Event(SEND_MESSAGE, {...}))
+    Disp->>Ctrl: update(Event(SEND_MESSAGE, {...}))
+    Note over Ctrl: Controller validates input and formats payload
+    Ctrl->>Net: send_message({type: public_message, sender: Alice, text: Hello})
     
-    Net->>Net: asyncio: run_coroutine_threadsafe()
     Net->>Server: WebSocket.send({type: public_message, sender: Alice, text: Hello})
     Server->>Server: Receive message
     Server->>Database: save public message
@@ -73,22 +80,28 @@ sequenceDiagram
     participant Alice as Alice Client
     participant AliceUI as Alice UI
     participant AliceDisp as Dispatcher
+    participant AliceCtrl as Controller
     participant AliceNet as Alice WebSocket
     participant Server as Server
     participant BobNet as Bob WebSocket
     participant BobDisp as Dispatcher
     participant BobUI as Bob UI
     participant PrivChat as PrivateChatWindow
+    participant WindowMgr as PrivateChatWindowManager
 
     Note over Alice,Bob: Private Message Flow - Alice to Bob
 
     Alice->>AliceUI: Clicks on "Bob" in Users Panel
     AliceUI->>AliceDisp: notify(OPEN_PRIVATE_CHAT, {username: Bob})
-    AliceDisp->>PrivChat: update(Event) -> opens window
+    AliceDisp->>AliceUI: update(Event) -> MainWindow opens or focuses private chat window
+    AliceUI->>WindowMgr: open_chat(Bob)
+    WindowMgr->>PrivChat: create or focus existing window
     
     Alice->>AliceUI: Types "Secret" in private chat window
     AliceUI->>AliceDisp: notify(PRIVATE_MESSAGE_SENT, {sender: Alice, recipient: Bob, text: Secret})
-    AliceDisp->>AliceNet: update(Event) -> sends via network
+    AliceDisp->>AliceCtrl: update(Event(PRIVATE_MESSAGE_SENT, {...}))
+    Note over AliceCtrl: Controller validates and formats private payload
+    AliceCtrl->>AliceNet: send_message({type: private_message, sender: Alice, recipient: Bob, text: Secret})
     
     AliceNet->>Server: WebSocket.send({type: private_message, sender: Alice, recipient: Bob, text: Secret})
     Server->>Server: Lookup username_to_websocket["Bob"]
@@ -110,6 +123,8 @@ sequenceDiagram
     participant ClientA as Client A
     participant Server as Server
     participant ClientB as Client B
+    participant NetB as WebSocketClient
+    participant DispB as EventDispatcher
     participant Users as UsersPanel
 
     Note over ClientA,Users: User Connection/Disconnection Flow
@@ -120,8 +135,9 @@ sequenceDiagram
     Server->>ClientA: user_list: ["Alice", "Bob"]
     Server->>ClientB: user_list: ["Alice", "Bob"]
     
-    ClientB->>Users: WebSocketClient receives user_list
-    ClientB->>Users: Event(USER_LIST_UPDATED, {"users": ["Alice", "Bob"]})
+    ClientB->>NetB: WebSocketClient receives user_list JSON
+    NetB->>DispB: dispatcher.notify(Event(USER_LIST_UPDATED, {"users": ["Alice", "Bob"]}))
+    DispB->>Users: update(Event(USER_LIST_UPDATED, {...}))
     Users->>Users: Update displayed user list with click handlers
     
     ClientA->>Server: WebSocket disconnect
@@ -129,7 +145,10 @@ sequenceDiagram
     Server->>Server: Broadcast leave message to all clients
     Server->>Server: Broadcast updated user_list
     Server->>ClientB: user_list: ["Bob"]
-    ClientB->>Users: Update displayed user list
+    ClientB->>NetB: WebSocketClient receives user_list JSON
+    NetB->>DispB: dispatcher.notify(Event(USER_LIST_UPDATED, {"users": ["Bob"]}))
+    DispB->>Users: update(Event(USER_LIST_UPDATED, {...}))
+    Users->>Users: Update displayed user list
 ```
 
 ## Event Flow Description
@@ -139,25 +158,35 @@ sequenceDiagram
 2. **UI Validation**: GUI validates input and connection state
 3. **Event Creation**: GUI creates `Event(SEND_MESSAGE, {text, username})`
 4. **Dispatcher Notification**: `dispatcher.notify(event)` called
-5. **Routing**: All observers notified (Network, State, UI)
-6. **Network Processing**: WebSocketClient formats and sends structured `{type: public_message, sender, text}`
-7. **Server Broadcast**: Message relayed to all connected clients
-8. **Message Received**: WebSocketClient fires `Event(MESSAGE_RECEIVED, {message})`
-9. **UI Display**: MainWindow receives message event and updates chat history
+5. **Routing**: All observers notified (Controller, Network, State, UI)
+6. **Controller Processing**: Controller validates the event and formats the outgoing payload
+7. **Network Transport**: WebSocketClient sends the formatted JSON string to the server
+8. **Server Broadcast**: Server persists the public message and relays it to all connected clients
+9. **Message Received**: WebSocketClient receives the broadcast and dispatches `Event(MESSAGE_RECEIVED, {...})`
+10. **UI Display**: MainWindow receives the event and updates chat history
 
 ### Private Message (New)
 1. **User Selection**: User clicks on username in UsersPanel
 2. **Dispatcher Event**: UsersPanel emits `Event(OPEN_PRIVATE_CHAT, {username})`
-3. **Window Mgmt**: MainWindow.private_chat_manager.open_chat() creates/focuses window
-4. **Private Window**: PrivateChatWindow opens independently with peer username
-5. **User Sends**: User types message and clicks Send in PrivateChatWindow
+3. **Window Mgmt**: MainWindow.private_chat_manager.open_chat() creates or focuses a private chat window
+4. **Private Window**: PrivateChatWindow opens independently with the peer username
+5. **User Sends**: User types a message and clicks Send in PrivateChatWindow
 6. **Dispatcher Event**: PrivateChatWindow emits `Event(PRIVATE_MESSAGE_SENT, {sender, recipient, text})`
-7. **Controller Processing**: Controller validates and formats structured payload
-8. **Network Send**: WebSocketClient sends `{type: private_message, sender, recipient, text}` to server
-9. **Server Routing**: Server looks up recipient in `username_to_websocket` and sends ONLY to that connection
-10. **Recipient Receive**: WebSocketClient fires `Event(PRIVATE_MESSAGE_RECEIVED, {payload})`
-11. **Auto-Window Open**: MainWindow opens PrivateChatWindow if not already open
-12. **Display**: PrivateChatWindow receives event and displays message with sender name
+7. **Controller Processing**: Controller validates and formats the structured private payload
+8. **Network Transport**: WebSocketClient sends the payload to the server
+9. **Server Routing**: Server looks up `username_to_websocket[recipient]` and forwards only to that recipient
+10. **Recipient Receive**: Recipient WebSocketClient dispatches `Event(PRIVATE_MESSAGE_RECEIVED, {...})`
+11. **Auto-Window Open**: MainWindow opens or focuses the sender's private chat window if needed
+12. **Display**: PrivateChatWindow receives the event and appends the incoming message
+
+## AppState Responsibilities
+
+`AppState` only handles:
+- `CONNECTION_CHANGED`
+- `CLEAR_CHAT`
+- `ERROR_OCCURRED`
+
+It does not process message payloads or user list updates.
 
 ## Key Improvements Over Queue-Based System
 
@@ -221,6 +250,8 @@ class PrivateChatWindowManager:
         # If window exists: focus existing window (no duplicate)
         # If window doesn't exist: create new window and store
 ```
+
+PrivateChatWindowManager prevents duplicate private chat windows by reusing existing windows for the same recipient.
 
 ## Event Types Reference
 
