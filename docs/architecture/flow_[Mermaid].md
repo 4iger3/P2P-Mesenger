@@ -26,7 +26,7 @@ graph TB
     Dispatcher -->|Notify| Users
     Dispatcher -->|Notify| PrivateChat
     Dispatcher -->|Notify| WindowManager
-    Controller -->|send_message(...)| Network
+    Controller -->|send_message| Network
     Network -->|MESSAGE_RECEIVED\nPRIVATE_MESSAGE_RECEIVED\nCONNECTION_CHANGED\nUSER_LIST_UPDATED| Dispatcher
     Dispatcher -->|Update| UI
     Dispatcher -->|Update| State
