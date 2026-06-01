@@ -2,7 +2,7 @@
 
 ## MVP Scope
 - Centralized WebSocket server that receives messages from clients and relays them to all connected peers
-- Tkinter client application with server connection, message input field, send button, and chat history display
+- CustomTkinter client application with server connection, message input field, send button, and chat history display
 - No message history stored on the server; priority on simplicity and stability
 
 ## Development Stages / Sprints
@@ -10,7 +10,7 @@
    - project setup, `requirements.txt`, basic structure
    - develop `server.py` with WebSocket listener and a set of active connections
 2. Client sprint
-   - build Tkinter GUI with IP/port fields, Connect and Send buttons
+   - build CustomTkinter GUI with IP/port fields, Connect and Send buttons
    - implement a separate thread for receiving messages
 3. Network stability and data delivery
    - handle client disconnects and close WebSocket connections cleanly
@@ -34,6 +34,11 @@
      - Observer pattern integration for event-driven updates
      - Dark theme styling with online indicators
      - Scrollable user list for large groups
+
+7. **Database persistence layer** ✅ **COMPLETE**
+   - Uses SQLite and stores data in `data/messenger.db`
+   - Server initializes the database and creates `users` and `messages` tables automatically on startup
+   - Server-side only access ensures the UI remains decoupled from persistence
 
 ## Core Messaging Functionality
 - Server receives text messages from any client
@@ -66,3 +71,31 @@
 - Minor UX improvements for message history and connection controls
 - Better error reporting for network issues
 
+## Private Direct Messages (DMs) ✅ **COMPLETE**
+- **Private Chat Architecture** ✅ **COMPLETE**
+  - **Window-based private conversations** ✅ **COMPLETE**
+    - Dedicated PrivateChatWindow component for each peer
+    - PrivateChatWindowManager prevents duplicate windows
+    - Windows reuse existing ChatArea and MessageInput components
+    - Auto-open windows when receiving private messages
+  - **Structured message model** ✅ **COMPLETE**
+    - MessageModel enum-like type field: public_message | private_message
+    - Sender, recipient, and text fields for routing decisions
+    - JSON serialization for network transmission
+    - Backward compatibility with legacy text format
+  - **Server-side private routing** ✅ **COMPLETE**
+    - Server maintains username_to_websocket mapping
+    - Private messages routed ONLY to recipient, not broadcast
+    - Invalid recipients logged and ignored
+    - Graceful handling of disconnected recipients
+  - **Event-driven integration** ✅ **COMPLETE**
+    - OPEN_PRIVATE_CHAT event when user clicks in UsersPanel
+    - PRIVATE_MESSAGE_SENT event dispatched by PrivateChatWindow
+    - PRIVATE_MESSAGE_RECEIVED event routed by WebSocketClient
+    - UsersPanel single/double-click to open private chat
+  - **Test coverage** ✅ **COMPLETE**
+    - Message serialization/deserialization tests
+    - Duplicate window prevention tests
+    - Server routing to correct recipient only
+    - Invalid recipient handling in server
+    - Event dispatch verification

@@ -14,6 +14,9 @@ from core.events.events import (
     Event,
     CONNECTION_CHANGED,
     MESSAGE_RECEIVED,
+    PRIVATE_MESSAGE_RECEIVED,
+    PRIVATE_MESSAGE_SENT,
+    OPEN_PRIVATE_CHAT,
     ERROR_OCCURRED,
     CONNECT_REQUEST,
     DISCONNECT_REQUEST,
@@ -24,6 +27,7 @@ from core.events.dispatcher import EventDispatcher
 from .components import Sidebar, ChatArea, MessageInput, StatusPanel, UsersPanel
 from .components.connection_dialog import ConnectionSettingsDialog
 from .components.settings_window import SettingsWindow
+from .private_chat_window import PrivateChatWindowManager
 from .theme.theme_manager import ThemeManager
 
 
@@ -63,6 +67,12 @@ class MainWindow(Observer):
         self.connected = False
 
         self._build_ui()
+        self.private_chat_manager = PrivateChatWindowManager(
+            self.root,
+            self.dispatcher,
+            self.username_var.get,
+            self.theme_manager,
+        )
         self._bind_events()
         self._setup_context_menu()
 
@@ -178,6 +188,13 @@ class MainWindow(Observer):
             self.dispatcher.notify(event)
             self.message_input.clear()
 
+    def _open_private_chat(self, username: str):
+        """Open or focus a private chat window for the selected user."""
+        if not username or username == self.username_var.get().strip():
+            return None
+
+        return self.private_chat_manager.open_chat(username)
+
     def _clear_chat(self) -> None:
         """Clear chat history."""
         if messagebox.askyesno("Clear Chat", "Clear all messages?"):
@@ -208,16 +225,38 @@ class MainWindow(Observer):
         """
         if event.type == MESSAGE_RECEIVED:
             self._handle_message_received(event)
+        elif event.type == PRIVATE_MESSAGE_RECEIVED:
+            self._handle_private_message_received(event)
+        elif event.type == OPEN_PRIVATE_CHAT:
+            username = str(event.data.get("username", "")).strip()
+            self._open_private_chat(username)
+        elif event.type == PRIVATE_MESSAGE_SENT:
+            recipient = str(event.data.get("recipient", "")).strip()
+            self._open_private_chat(recipient)
         elif event.type == CONNECTION_CHANGED:
             self._handle_connection_changed(event)
         elif event.type == ERROR_OCCURRED:
             self._handle_error(event)
 
+    def _handle_private_message_received(self, event: Event) -> None:
+        """Handle incoming private messages and open windows automatically."""
+        payload = event.data.get("payload", {})
+        sender = str(payload.get("sender", "")).strip()
+        recipient = str(payload.get("recipient", "")).strip()
+        text = str(payload.get("text", ""))
+        timestamp = str(payload.get("timestamp", ""))
+
+        if recipient != self.username_var.get().strip() or not sender:
+            return
+
+        window = self._open_private_chat(sender)
+        if window:
+            window._append_message(sender, text, timestamp, is_own=False)
+
     def _handle_message_received(self, event: Event) -> None:
         """Handle incoming message event."""
         import json
         from core.message_model import MessageModel
-        from datetime import datetime
 
         message_text = str(event.data.get("message", ""))
         if not message_text:
@@ -231,7 +270,6 @@ class MainWindow(Observer):
         if isinstance(payload, dict):
             event_type = payload.get("type")
             user = str(payload.get("user", "")).strip()
-            now = datetime.now().strftime("%H:%M:%S")
 
             if event_type == "join":
                 current_user = self.username_var.get().strip()
@@ -239,25 +277,29 @@ class MainWindow(Observer):
                     text = "You joined the chat"
                 else:
                     text = f"User {user} joined the chat"
-                self.chat_area.add_system_message(text, now)
-            elif event_type == "leave":
+                self.chat_area.add_system_message(text)
+                return
+            if event_type == "leave":
                 current_user = self.username_var.get().strip()
                 if user and user == current_user:
                     text = "You left the chat"
                 else:
                     text = f"User {user} left the chat"
-                self.chat_area.add_system_message(text, now)
-            else:
-                message = MessageModel(message_text)
-                formatted = message.formatted()
-                text, timestamp, is_own = self._parse_message(formatted)
-                username = user if not is_own else ""
-                self.chat_area.add_message(text, is_own, timestamp, username)
-        else:
-            message = MessageModel(message_text)
-            formatted = message.formatted()
-            text, timestamp, is_own = self._parse_message(formatted)
-            self.chat_area.add_message(text, is_own, timestamp)
+                self.chat_area.add_system_message(text)
+                return
+            if event_type == "public_message":
+                message = MessageModel.from_payload(payload)
+                timestamp = message.timestamp.strftime("%H:%M:%S")
+                is_own = message.sender == self.username_var.get().strip()
+                self.chat_area.add_message(message.text, is_own, timestamp, "" if is_own else message.sender)
+                return
+            # Unknown structured message or private message should not show in public chat.
+            return
+
+        message = MessageModel.from_string(message_text)
+        formatted = message.formatted()
+        text, timestamp, is_own = self._parse_message(formatted)
+        self.chat_area.add_message(text, is_own, timestamp, "" if is_own else message.sender)
 
     def _handle_connection_changed(self, event: Event) -> None:
         """Handle connection state change event."""

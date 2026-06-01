@@ -20,6 +20,7 @@ from core.events.events import (
     Event,
     CONNECTION_CHANGED,
     MESSAGE_RECEIVED,
+    PRIVATE_MESSAGE_RECEIVED,
     USER_LIST_UPDATED,
     ERROR_OCCURRED,
     CONNECT_REQUEST,
@@ -165,6 +166,10 @@ class WebSocketClient(Observer):
                 if isinstance(payload, dict) and payload.get("type") == "user_list":
                     # Dispatch user list update event
                     event = Event(USER_LIST_UPDATED, {"users": payload.get("users", [])})
+                    self.dispatcher.notify(event)
+                elif isinstance(payload, dict) and payload.get("type") == "private_message":
+                    # Dispatch private message events separately
+                    event = Event(PRIVATE_MESSAGE_RECEIVED, {"payload": payload})
                     self.dispatcher.notify(event)
                 else:
                     # Dispatch regular message received event

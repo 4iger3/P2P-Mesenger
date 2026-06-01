@@ -3,20 +3,24 @@
 
 import argparse
 import asyncio
+import functools
 import json
 import sys
 
 import websockets
 from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
+from database import DatabaseManager
+
 active_connections = set()
 client_usernames: dict[websockets.WebSocketServerProtocol, str] = {}
+username_to_websocket: dict[str, websockets.WebSocketServerProtocol] = {}
 connection_lock = asyncio.Lock()
 
 
 async def broadcast_user_list() -> None:
     """Broadcast the current user list to all connected clients."""
-    usernames = list(client_usernames.values())
+    usernames = list(username_to_websocket.keys())
     user_list_message = json.dumps({"type": "user_list", "users": usernames})
     await broadcast_message(user_list_message)
 
@@ -40,7 +44,11 @@ async def broadcast_message(message: str) -> None:
                 active_connections.discard(websocket)
 
 
-async def handle_client(websocket: websockets.WebSocketServerProtocol) -> None:
+async def handle_client(
+    websocket: websockets.WebSocketServerProtocol,
+    path: str,
+    database_manager: DatabaseManager,
+) -> None:
     """Handle a client connection and relay its messages."""
     async with connection_lock:
         active_connections.add(websocket)
@@ -57,10 +65,38 @@ async def handle_client(websocket: websockets.WebSocketServerProtocol) -> None:
             if isinstance(payload, dict) and payload.get("type") == "auth":
                 username = str(payload.get("user", "")).strip()
                 client_usernames[websocket] = username
+                username_to_websocket[username] = websocket
+                database_manager.create_user(username)
                 join_message = json.dumps({"type": "join", "user": username})
                 await broadcast_message(join_message)
                 await broadcast_user_list()  # Broadcast updated user list
                 continue
+
+            if isinstance(payload, dict) and payload.get("type") == "private_message":
+                recipient = str(payload.get("recipient", "")).strip()
+                sender = str(payload.get("sender", "")).strip()
+                content = str(payload.get("text", "")).strip()
+                database_manager.save_message(sender, recipient, content)
+                if recipient and recipient in username_to_websocket:
+                    print(f"Routing private message from {sender} to {recipient}")
+                    try:
+                        await username_to_websocket[recipient].send(message)
+                    except (ConnectionClosedError, ConnectionClosedOK, OSError):
+                        async with connection_lock:
+                            disconnected = [username_to_websocket[recipient]]
+                            for websocket_disconnected in disconnected:
+                                active_connections.discard(websocket_disconnected)
+                    except Exception as error:
+                        print(f"Private routing error: {error}", file=sys.stderr)
+                else:
+                    print(f"Ignored private message to invalid recipient: {recipient}")
+                continue
+
+            if isinstance(payload, dict):
+                sender = str(payload.get("sender", "")).strip()
+                content = str(payload.get("text", "")).strip()
+                if sender and content:
+                    database_manager.save_message(sender, None, content)
 
             await broadcast_message(message)
     except (ConnectionClosedError, ConnectionClosedOK):
@@ -69,6 +105,8 @@ async def handle_client(websocket: websockets.WebSocketServerProtocol) -> None:
         print(f"Connection handler error: {error}", file=sys.stderr)
     finally:
         username = client_usernames.pop(websocket, "")
+        if username and username in username_to_websocket:
+            username_to_websocket.pop(username, None)
         async with connection_lock:
             active_connections.discard(websocket)
         if username:
@@ -85,7 +123,14 @@ async def main() -> None:
     parser.add_argument("--port", type=int, default=8765, help="Port to bind the server")
     args = parser.parse_args()
 
-    async with websockets.serve(handle_client, args.host, args.port):
+    database_manager = DatabaseManager()
+    database_manager.initialize_database()
+
+    async with websockets.serve(
+        functools.partial(handle_client, database_manager=database_manager),
+        args.host,
+        args.port,
+    ):
         print(f"Server started on {args.host}:{args.port}")
         await asyncio.Future()
 

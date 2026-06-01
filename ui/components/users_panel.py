@@ -5,7 +5,7 @@ Fully theme-aware panel for showing connected users.
 
 import customtkinter as ctk
 from core.events.observer import Observer
-from core.events.events import USER_LIST_UPDATED
+from core.events.events import Event, OPEN_PRIVATE_CHAT, USER_LIST_UPDATED
 
 
 class UsersPanel(ctk.CTkFrame, Observer):
@@ -126,3 +126,17 @@ class UsersPanel(ctk.CTkFrame, Observer):
                                       font=("", 11), text_color=text_color,
                                       anchor="w")
             user_label.grid(row=0, column=1, sticky="ew", padx=(0, 10), pady=8)
+
+            # Open private chat on click or double click
+            user_frame.bind("<Button-1>", lambda event, name=username: self._dispatch_open_private_chat(name))
+            user_label.bind("<Button-1>", lambda event, name=username: self._dispatch_open_private_chat(name))
+            user_frame.bind("<Double-Button-1>", lambda event, name=username: self._dispatch_open_private_chat(name))
+            user_label.bind("<Double-Button-1>", lambda event, name=username: self._dispatch_open_private_chat(name))
+
+    def _dispatch_open_private_chat(self, username: str) -> None:
+        """Dispatch an event when a user is selected for private chat."""
+        if not username:
+            return
+
+        event = Event(OPEN_PRIVATE_CHAT, {"username": username})
+        self.dispatcher.notify(event)

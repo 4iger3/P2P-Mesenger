@@ -15,9 +15,11 @@ from core.events.events import (
     CONNECT_REQUEST,
     DISCONNECT_REQUEST,
     SEND_MESSAGE,
+    PRIVATE_MESSAGE_SENT,
     ERROR_OCCURRED,
 )
 from .state import AppState
+from .message_model import MessageModel
 
 
 class Controller(Observer):
@@ -57,6 +59,8 @@ class Controller(Observer):
             self._handle_connect_request(event)
         elif event.type == SEND_MESSAGE:
             self._handle_send_message_request(event)
+        elif event.type == PRIVATE_MESSAGE_SENT:
+            self._handle_private_message_request(event)
         elif event.type == DISCONNECT_REQUEST:
             self._handle_disconnect_request(event)
         elif event.type == CONNECTION_CHANGED:
@@ -122,10 +126,43 @@ class Controller(Observer):
             return
 
         username = str(event.data.get("username", "")).strip()
-        message = f"{username}: {text}" if username else text
+        payload = MessageModel(
+            type="public_message",
+            sender=username,
+            text=text,
+        )
 
         # Send directly to network client (avoid re-entrant event dispatching)
-        self.network_client.send_message(message)
+        self.network_client.send_message(payload.to_json())
+
+    def _handle_private_message_request(self, event: Event) -> None:
+        """
+        Handle private message request with validation.
+
+        Builds a structured private message payload and sends it through the network layer.
+        Args:
+            event (Event): The private message event.
+        """
+        if not self.state.connected:
+            error_event = Event(ERROR_OCCURRED, {"error": "Not connected to server"})
+            self.dispatcher.notify(error_event)
+            return
+
+        sender = str(event.data.get("sender", "")).strip()
+        recipient = str(event.data.get("recipient", "")).strip()
+        text = str(event.data.get("text", "")).strip()
+
+        if not sender or not recipient or not text:
+            return
+
+        payload = MessageModel(
+            type="private_message",
+            sender=sender,
+            recipient=recipient,
+            text=text,
+        )
+
+        self.network_client.send_message(payload.to_json())
 
     def _handle_disconnect_request(self, event: Event) -> None:
         """
