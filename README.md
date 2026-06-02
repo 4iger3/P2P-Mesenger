@@ -1,104 +1,132 @@
 # P2P Messenger
 
-*Centralized relay architecture for instant messaging*
+A centralized messaging application with a WebSocket relay server and a modular Python client GUI.
+
+## Project Overview
+
+P2P Messenger is a centralized chat system that uses a server relay architecture. The server accepts WebSocket connections from clients, forwards messages to connected peers, and persists user and message metadata in a local database. The client is built with a modular event-driven UI and supports public and private messaging.
+
+## Features
+
+- WebSocket relay server with configurable host and port
+- Event-driven client architecture using an observer pattern
+- CustomTkinter-based GUI for connection management and chat input
+- Public broadcast messaging and private message routing
+- SQLite-backed database layer for user and message persistence
+- Modular project layout with separate core, network, UI, config, database, and docs layers
 
 ## Architecture
 
-This project implements a messaging system where:
+P2P Messenger is organized as a layered application:
 
-1. A server runs on a designated PC and accepts WebSocket connections
-2. Clients connect to the server using a known IP address and port
-3. The server relays each incoming message to all connected clients
+- `server.py` — central relay server using `websockets` and `asyncio`
+- `app.py` — client entrypoint that composes core, network, and UI modules
+- `core/` — application state, controller logic, and event dispatching
+- `network/` — client-side WebSocket networking and event handling
+- `ui/` — main window, components, and user interaction logic
+- `database/` — SQLite database initialization and persistence
+- `config/` — theming and configuration assets
+
+The server accepts incoming client connections, processes authentication and message payloads, and relays messages to the proper recipients while keeping the relay stateless.
 
 ## Technologies
 
-- Python 3.10+ with asyncio
-- WebSockets for bidirectional communication
-- Tkinter for graphical user interface
+- Python 3.12
+- asyncio for asynchronous networking and server operation
+- websockets for WebSocket communication
+- CustomTkinter / Tkinter for the desktop client GUI
+- SQLite via Python standard library for lightweight persistence
+- JSON for client-server payloads and configuration
+
+## Running the Server
+
+Start the relay server from the repository root:
+
+```bash
+python server.py --host 0.0.0.0 --port 8765
+```
+
+- `--host` defaults to `0.0.0.0`
+- `--port` defaults to `8765`
+
+The server initializes the database on startup and begins accepting WebSocket connections.
+
+## Running the Client
+
+Launch the client from the repository root:
+
+```bash
+python app.py
+```
+
+The client opens the main window and connects to a running server using the configured IP and port.
+
+## Database Layer
+
+The `database/` package contains the persistence layer used by `server.py`:
+
+- `database/__init__.py`
+- `database/database.py`
+- `database/schema.py`
+
+The database layer initializes the schema, stores user records, and saves messages. It is used for persistence and does not alter the real-time relay behavior of the server.
 
 ## Project Structure
 
+```text
 P2P-Messenger/
-├── app.py
-├── server.py
-├── README.md
 ├── AGENTS.md
-│
+├── README.md
+├── app.py
+├── config/
+│   └── theme_config.json
 ├── core/
 │   ├── __init__.py
-│   ├── state.py
+│   ├── controller.py
+│   ├── events/
 │   ├── message_model.py
-│   └── events/
-│       ├── __init__.py
-│       ├── dispatcher.py
-│       ├── observer.py
-│       ├── events.py
-│       └── README.md
-│
+│   └── state.py
+├── database/
+│   ├── __init__.py
+│   ├── database.py
+│   ├── schema.py
+│   └── README.md
+├── docs/
+│   ├── architecture/
+│   ├── plans/
+│   └── requirements/
+├── Experiment/
+│   └── Experiment.md
 ├── network/
 │   ├── __init__.py
 │   ├── event_loop.py
 │   └── websocket_client.py
-│
-├── ui/
-│   ├── __init__.py
-│   ├── main_window.py
-│   └── components/
-│       ├── __init__.py
-│       ├── sidebar.py
-│       ├── chat_area.py
-│       ├── message_input.py
-│       ├── status_panel.py
-│       ├── chat_bubble.py
-│       └── users_panel.py
-│
-├── docs/
-│   ├── architecture/
-│   │   └── flow_[Mermaid].md
-│   │
-│   ├── plans/
-│   │   └── roadmap.md
-│   │
-│   └── requirements/
-│       ├── feature_send_message.md
-│       └── pm_approach.md
-│
-├── Experiment/
-│   └── Experiment.md
-│
+├── requirements.txt
+├── server.py
 ├── tests/
-│   ├── test_client_send.py
-│   └── test_message_delivery.py
-│
-└── __pycache__/
-
-## Architecture Overview
-
-The application follows a layered architecture:
-
-- core/ — domain state and models
-- network/ — async communication layer (WebSocket)
-- ui/ — presentation layer (Tkinter)
-- app.py — composition root (wires all layers together)
-
-## Design Patterns
-
-The project uses the Observer Design Pattern to implement
-an event-driven communication system between the UI,
-network, and controller layers.
-
-The event dispatcher reduces direct coupling between modules
-and improves scalability and maintainability.
-
-## Usage
-
-
-### Server
-```
-python server.py --host 0.0.0.0 --port 8765
+└── ui/
+    ├── __init__.py
+    ├── components/
+    ├── components_old.py
+    ├── main_window.py
+    ├── private_chat_window.py
+    └── theme/
 ```
 
-### Client
-```
-python app.py
-```
+> Note: Development artifacts such as `.venv`, `venv`, `.vscode`, and `__pycache__` are intentionally excluded from this structure listing.
+
+## Documentation
+
+The repository includes documentation and planning assets in the `docs/` folder:
+
+- `docs/architecture/` — architecture diagrams and flow documentation
+- `docs/plans/` — roadmap and future planning
+- `docs/requirements/` — functional requirements and design notes
+
+## Future Improvements
+
+- Add user authentication and encrypted transport for stronger security
+- Improve client UI with persistent chat history and message timestamps
+- Add multi-room or channel support for group conversations
+- Extend automated tests to cover database operations and UI workflows
+- Add server health monitoring and better error reporting
