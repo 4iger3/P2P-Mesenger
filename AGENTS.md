@@ -9,7 +9,7 @@
 | Project Name | P2P Messenger |
 | Actual Architecture | Client-Server with centralized relay |
 | Language | Python 3.12 |
-| GUI Framework | Tkinter (built-in) |
+| GUI Framework | CustomTkinter (built-in) |
 | Protocol | WebSockets |
 
 ## PROHIBITED ACTIONS
@@ -20,6 +20,9 @@
 - Do NOT delete or rename the AGENTS.md file
 - Do NOT add external libraries without explicit permission beyond websockets and standard library
 - Do NOT overcomplicate the architecture unnecessarily
+- Do not write any database tests.
+- Do not run any database tests.
+- Do not create any Audit logs or summary reports as a files.
 
 ## REQUIRED ACTIONS
 - ALWAYS use English
@@ -31,7 +34,7 @@
 - ALWAYS verify that generated code runs without errors before proposing changes
 - ALWAYS use clear variable names and avoid abbreviations
 
--ALWAYS generate not more than 1200 lines of code per Persenal Request.
+-ALWAYS generate not more than 1000 lines of code per Persenal Request.
 
 ## Architectural Constraints
 
